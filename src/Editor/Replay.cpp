@@ -265,6 +265,8 @@ struct Stats {
     int holdsHeld = 0, holdsLetGo = 0, holdsMissed = 0;
     int minesHit = 0;
     int strays = 0;
+    int earlyHits = 0;  ///< Early decents/way offs, rescored or not.
+    int rescored = 0;   ///< Early hits that a later press improved.
     int unjudged = 0;
     int numOffsets = 0;
     double meanMs = 0.0, sdMs = 0.0;
@@ -868,8 +870,8 @@ struct ReplayImpl : public Replay {
         }
     }
 
-    // Early hits that never got a final judgment in the replay, e.g. because
-    // the song ended first.
+    // Counts the early hits, and marks the presses of early hits that never
+    // got a final judgment in the replay (e.g. because the song ended first).
     void matchEarlyHits(std::vector<std::vector<Press>>& presses, double shift,
                         double bias) {
         for (auto& e : myFile.events) {
@@ -879,8 +881,19 @@ struct ReplayImpl : public Replay {
             }
             int judge = toJudge(e.score, e.offset);
             if (judge < 0) continue;
+            ++myStats.earlyHits;
+
+            bool judged = false;
+            for (auto& t : myFile.events) {
+                if (t.type == 'T' && t.col == e.col &&
+                    std::abs(t.earlyOffset - e.offset) < 1e-5) {
+                    judged = true;
+                    break;
+                }
+            }
+            if (judged) continue;
             const double t = e.time + shift;
-            linkPress(presses[e.col], t, 0.1, true, e.col, PRESS_EARLY, judge,
+            linkPress(presses[e.col], t, 0.03, true, e.col, PRESS_EARLY, judge,
                       t + bias);
         }
     }
@@ -951,6 +964,10 @@ struct ReplayImpl : public Replay {
                 continue;
             }
             if (n.judge >= J_W4) myIssues.push_back(n.time);
+            if (n.earlyJudge >= 0) {
+                ++myStats.rescored;
+                if (n.judge < J_W4) myIssues.push_back(n.time);
+            }
             double ms = n.offset * 1000.0;
             sum += ms, sumSq += ms * ms;
             ++myStats.numOffsets;
@@ -1115,6 +1132,23 @@ struct ReplayImpl : public Replay {
                            Color32a(kJudgeColors[it->judge], 190));
             }
 
+            // Dashed lines from rescored notes to their early press.
+            const int dash = std::max(2, gSystem->applyScaleFactor(4));
+            for (auto it = firstVisible(myNotes, g.begin - 0.5);
+                 it != myNotes.end() && it->time <= g.end + 0.5; ++it) {
+                if (it->earlyJudge < 0) continue;
+                int x = g.colX[it->col] + line * 2;
+                int y0 = gView->timeToY(it->time);
+                int y1 =
+                    gView->timeToY(it->time + it->earlyOffset * myFile.rate);
+                if (y0 > y1) std::swap(y0, y1);
+                for (int y = y0; y < y1; y += dash * 2) {
+                    Draw::fill(&batch,
+                               {x - line / 2, y, line, std::min(dash, y1 - y)},
+                               kJudgeColors[it->earlyJudge]);
+                }
+            }
+
             // Every press.
             for (auto it = firstVisible(myPresses, g.begin);
                  it != myPresses.end() && it->time <= g.end; ++it) {
@@ -1125,8 +1159,8 @@ struct ReplayImpl : public Replay {
                                 kJudgeColors[it->judge]);
                         break;
                     case PRESS_EARLY:
-                        drawBar(&batch, x, y, g.colW * 6 / 10, thick,
-                                Color32a(kJudgeColors[it->judge], 170));
+                        drawBar(&batch, x, y, g.colW * 7 / 10, thick,
+                                kJudgeColors[it->judge]);
                         break;
                     case PRESS_HOLD:
                         drawBar(&batch, x, y, g.colW * 5 / 10, thick,
@@ -1165,24 +1199,28 @@ struct ReplayImpl : public Replay {
             int col;
             std::string text;
             uint32_t color;
+            std::string extra;
+            uint32_t extraColor = 0;
         };
         std::vector<Label> labels;
 
         for (auto it = firstVisible(myNotes, g.begin);
              it != myNotes.end() && it->time <= g.end; ++it) {
-            std::string text;
+            std::string text, extra;
+            uint32_t extraColor = 0;
             if (it->judge == J_MISS) {
                 text = it->heldMiss ? "MISS (held)" : "MISS";
             } else {
                 text = std::format("{:+.0f}", it->offset * 1000.0);
                 if (it->earlyJudge >= 0) {
-                    text += std::format(" ({} {:+.0f})",
+                    extra = std::format("fixed from {} {:+.0f}",
                                         kJudgeNames[it->earlyJudge],
                                         it->earlyOffset * 1000.0);
+                    extraColor = kJudgeColors[it->earlyJudge];
                 }
             }
-            labels.push_back(
-                {it->time, it->col, text, kJudgeColors[it->judge]});
+            labels.push_back({it->time, it->col, text, kJudgeColors[it->judge],
+                              extra, extraColor});
         }
         for (auto it = firstVisible(myPresses, g.begin);
              it != myPresses.end() && it->time <= g.end; ++it) {
@@ -1234,6 +1272,12 @@ struct ReplayImpl : public Replay {
                     Text::arrange(Text::ML, style, text.c_str());
                     Text::draw(vec2i{x, y});
                     x += Text::getSize().x + 8;
+                    if (!labels[k].extra.empty()) {
+                        style.textColor = labels[k].extraColor;
+                        Text::arrange(Text::ML, style, labels[k].extra.c_str());
+                        Text::draw(vec2i{x - 4, y});
+                        x += Text::getSize().x + 4;
+                    }
                 }
             }
             i = j;
@@ -1282,6 +1326,12 @@ struct ReplayImpl : public Replay {
             text += std::format("\nMines hit   {}", myStats.minesHit);
             text += std::format("\n{{tc:FF40C8}}Stray taps{{tc}}  {}",
                                 myStats.strays);
+            if (myStats.earlyHits > 0) {
+                text += std::format(
+                    "\n{{tc:B45CFF}}Early hits{{tc}}  {}  "
+                    "{{tc:21CCE8}}fixed {}{{tc}}",
+                    myStats.earlyHits, myStats.rescored);
+            }
             if (myStats.numOffsets > 0) {
                 text += std::format("\nMean {:+.1f} ms   SD {:.1f} ms",
                                     myStats.meanMs, myStats.sdMs);
@@ -1423,6 +1473,14 @@ struct ReplayImpl : public Replay {
         for (auto& n : myNotes) {
             if (n.judge == J_MISS) continue;
             int y = yOf(n.time);
+            if (n.earlyJudge >= 0) {
+                int xe = xOf(n.earlyOffset), xf = xOf(n.offset);
+                uint32_t color = kJudgeColors[n.earlyJudge];
+                Draw::fill(&batch, {std::min(xe, xf), y, std::abs(xf - xe), 1},
+                           Color32a(color, 200));
+                Draw::fill(&batch, {xe - mark / 2, y - mark / 2, mark, mark},
+                           color);
+            }
             Draw::fill(&batch,
                        {xOf(n.offset) - mark / 2, y - mark / 2, mark, mark},
                        Color32a(kJudgeColors[n.judge], 220));

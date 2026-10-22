@@ -27,7 +27,7 @@ misses, dropped holds and hit mines.
 | Mark | Meaning |
 | --- | --- |
 | Colored bar with a line to the note | The press that hit the note, in the judgment color (blue FA+, white Fantastic, gold Excellent, green Great, purple Decent, brown Way Off) |
-| Shorter, faded bar | An early decent/way off that a later press rescored |
+| Bar with a dashed line to the note, label `fixed from Decent -113` | An early decent/way off that a later press fixed (ITGmania's early hit rescoring) |
 | Thick pink bar, `stray` | A press that did not activate anything |
 | Gray bar | A press during a hold or roll |
 | Red box, `MISS` | A miss (`MISS (held)` if the panel was held down) |
@@ -37,14 +37,14 @@ misses, dropped holds and hit mines.
 
 Offsets are in milliseconds, negative is early. Jumps show one value per arrow.
 
-**Summary panel** (left): judgment counts, holds, hit mines, stray taps, mean
-offset and standard deviation.
+**Summary panel** (left): judgment counts, holds, hit mines, stray taps, early
+hits and how many of them were fixed, mean offset and standard deviation.
 
 **Timeline** (next to the minimap, same vertical scale): every note as a dot
 at its offset (early left, late right), window edges as thin lines, the mean of
 the last 24 hits as a white trail, misses as red lines, dropped holds as orange
 lines, hit mines as short red marks on the right and stray taps as pink marks
-on the left. The yellow box is the part of the chart on screen; click or drag
+on the left. A fixed early hit shows its early dot joined to the final one. The yellow box is the part of the chart on screen; click or drag
 to jump.
 
 ## Installing
@@ -76,8 +76,8 @@ If the song is not in the ITGmania folder the replay came from, in
 `%APPDATA%\ITGmania\Songs` or in `C:\Games\ITGmania\Songs`, you are asked to
 pick the simfile once and its `Songs` folder is remembered.
 
-- `F7` / `F8`: previous / next problem (miss, decent, way off, stray tap,
-  dropped hold, hit mine).
+- `F7` / `F8`: previous / next problem (miss, decent, way off, fixed early
+  hit, stray tap, dropped hold, hit mine).
 - The **Replay** menu turns each layer on or off: presses, held panels, timing
   labels, summary panel, timeline.
 - Shortcuts can be changed in `settings/shortcuts.txt`.
