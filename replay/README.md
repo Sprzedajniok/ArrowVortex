@@ -2,13 +2,16 @@
 
 Installing and using ArrowReplay is described in the
 [main README](../README.md#arrowvortex--arrowreplay). This page covers the
-recorder, the replay file format and the tools.
+recorder, the replay file format and the tests.
 
 ## Files
 
 - `ArrowReplay.lua`: the Simply Love module that records replays.
-- `tools/test_recorder.py`: runs the module against a mocked ITGmania Lua API.
-- `tools/make_test_replay.py`: writes a synthetic replay for a `.sm` chart.
+- `tests/example - Into You.avreplay`: a real replay of *[11] Into You
+  (N-Vision Remix Edit)* (Challenge 11) from Stamina RPG 10, to try the viewer
+  without recording anything.
+- `tests/test_recorder.py`: runs the module against a mocked ITGmania Lua API.
+- `tests/make_test_replay.py`: writes a synthetic replay for a `.sm` chart.
 - `screenshots/`: images used by the main README.
 - The viewer itself is `src/Editor/Replay.cpp`.
 
@@ -61,12 +64,13 @@ claims are stray taps, or hold re-presses when they fall inside a hold or roll.
 
 ```sh
 pip install lupa
-python tools/test_recorder.py ArrowReplay.lua
-python tools/make_test_replay.py SONG.sm "/Songs/Pack/Song/song.sm" out.avreplay --rate 1.5
+python tests/test_recorder.py ArrowReplay.lua
+python tests/make_test_replay.py SONG.sm "/Songs/Pack/Song/song.sm" out.avreplay --rate 1.5
 ```
 
 `make_test_replay.py` prints the judgment counts it generated, which should
-match the viewer's summary panel.
+match the viewer's summary panel. Opening `tests/example - Into You.avreplay`
+checks the viewer on a real recording.
 
 ## Limitations
 

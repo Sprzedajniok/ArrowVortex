@@ -450,6 +450,35 @@ struct SystemImpl : public System {
         return static_cast<Result>(result);
     }
 
+    int showChoiceDlg(const std::string& title, const std::string& text,
+                      const std::vector<std::string>& choices) override {
+        std::vector<SDL_MessageBoxButtonData> buttons(choices.size());
+        for (size_t i = 0; i < choices.size(); ++i) {
+            buttons[i].flags = 0;
+            buttons[i].buttonID = static_cast<int>(i);
+            buttons[i].text = choices[i].c_str();
+        }
+        if (!buttons.empty()) {
+            buttons.front().flags |= SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT;
+            buttons.back().flags |= SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT;
+        }
+        SDL_MessageBoxData box;
+        box.flags = SDL_MESSAGEBOX_BUTTONS_LEFT_TO_RIGHT;
+        box.window = nullptr;
+        box.title = title.c_str();
+        box.message = text.c_str();
+        box.numbuttons = static_cast<int>(buttons.size());
+        box.buttons = buttons.data();
+        box.colorScheme = nullptr;
+        int result = -1;
+        if (!SDL_ShowMessageBox(&box, &result)) {
+            HudError("Failed to open message box with error %s",
+                     SDL_GetError());
+            return -1;
+        }
+        return result;
+    }
+
     fs::path openFileDlg(const std::string& title,
                          SDL_DialogFileFilter filters[], int num_filters,
                          fs::path filename) override {

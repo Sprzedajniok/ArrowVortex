@@ -496,6 +496,10 @@ struct ReplayImpl : public Replay {
     bool myShowTimeline = true;
     bool myIsDragging = false;
 
+    /// The simfile and chart the replay is shown on, see OpenSimfileId.
+    std::string myBoundSimfile;
+    const Chart* myBoundChart = nullptr;
+
     // ================================================================================================
     // ReplayImpl :: settings.
 
@@ -565,7 +569,7 @@ struct ReplayImpl : public Replay {
         fs::path simfile = locateSimfile(path, file, useCurrent, remember);
         if (!useCurrent) {
             if (simfile.empty()) {
-                HudError("Could not find the simfile for \"%s\".",
+                HudError("No simfile for \"%s\", the replay was not opened.",
                          file.get("Title").c_str());
                 return false;
             }
@@ -583,6 +587,8 @@ struct ReplayImpl : public Replay {
                        StripEnumPrefix(myFile.get("Difficulty")).c_str(),
                        myFile.get("Meter").c_str());
         }
+        myBoundSimfile = OpenSimfileId();
+        myBoundChart = gChart->get();
 
         int speed = static_cast<int>(std::lround(myFile.rate * 100.0));
         if (gMusic->getSpeed() != speed) gMusic->setSpeed(speed);
@@ -594,8 +600,15 @@ struct ReplayImpl : public Replay {
         return true;
     }
 
+    static std::string OpenSimfileId() {
+        if (gSimfile->isClosed()) return {};
+        return gSimfile->getDir() + "/" + gSimfile->getFile();
+    }
+
     void closeReplay() override {
         myIsOpen = false;
+        myBoundSimfile.clear();
+        myBoundChart = nullptr;
         myFile = ReplayFile();
         myPath.clear();
         clearMarks();
@@ -719,10 +732,12 @@ struct ReplayImpl : public Replay {
         remember = true;
 
         // Elsewhere: the song folder in another pack, or any simfile with the
-        // same title and artist. The same song is often in several packs, so
-        // the one that has the played chart wins.
-        fs::path best;
-        int bestScore = 0, matches = 0;
+        // same title and artist.
+        struct Candidate {
+            fs::path simfile;
+            int score = 0, chart = 0;
+        };
+        std::vector<Candidate> found;
         FindSongDir(roots, [&](const fs::path& d) {
             bool sameFolder =
                 !song.empty() && Str::iequal(pathToUtf8(d.filename()), song);
@@ -732,17 +747,57 @@ struct ReplayImpl : public Replay {
             if (!sameSong && !sameFolder) return false;
             int chart = ChartScore(sim, file);
             if (!sameSong && chart == 0) return false;
-            ++matches;
             int score = (sameSong ? 10 : 0) + (sameFolder ? 5 : 0) + chart * 3;
-            if (score > bestScore) best = sim, bestScore = score;
+            found.push_back({sim, score, chart});
             return false;
         });
-        if (!best.empty()) {
-            HudNote(
-                "Found \"%s\" in \"%s\"%s.", file.get("Title").c_str(),
-                pathToUtf8(best.parent_path().parent_path().filename()).c_str(),
-                matches > 1 ? ", the best of several matches" : "");
-            return best;
+        std::stable_sort(found.begin(), found.end(),
+                         [](const Candidate& a, const Candidate& b) {
+                             return a.score > b.score;
+                         });
+        auto packAndSong = [](const fs::path& sim) {
+            return pathToUtf8(sim.parent_path().parent_path().filename()) +
+                   " / " + pathToUtf8(sim.parent_path().filename());
+        };
+        if (found.size() == 1) {
+            HudNote("Found \"%s\" in \"%s\".", file.get("Title").c_str(),
+                    packAndSong(found[0].simfile).c_str());
+            return found[0].simfile;
+        }
+
+        // The same song is often in several packs, let the user choose. The
+        // best match is listed first and is the default button.
+        if (found.size() > 1) {
+            const size_t kMaxChoices = 6;
+            const std::string diff = StripEnumPrefix(file.get("Difficulty"));
+            std::string text = std::format(
+                "Several simfiles match \"{}\" ({} {}).\n"
+                "The replay was recorded on {}\n\n",
+                file.get("Title"), diff, file.get("Meter"), SongKey(file));
+            std::vector<std::string> buttons;
+            size_t shown = std::min(found.size(), kMaxChoices);
+            for (size_t i = 0; i < shown; ++i) {
+                const Candidate& c = found[i];
+                std::string chart =
+                    c.chart >= 3  ? "has the played chart"
+                    : c.chart > 0 ? "has a " + diff + " chart, other meter"
+                                  : "no " + diff + " chart";
+                text += std::format("{}. {}  ({})\n", i + 1,
+                                    packAndSong(c.simfile), chart);
+                buttons.push_back(std::to_string(i + 1));
+            }
+            if (found.size() > shown) {
+                text += std::format("and {} more\n", found.size() - shown);
+            }
+            text += "\nWhich one was played?";
+            buttons.emplace_back("Browse...");
+            buttons.emplace_back("Cancel");
+            int choice =
+                gSystem->showChoiceDlg("Choose the simfile", text, buttons);
+            if (choice >= 0 && choice < static_cast<int>(shown)) {
+                return found[choice].simfile;
+            }
+            if (choice != static_cast<int>(shown)) return {};
         }
 
         // Ask the user, the song and its folder are remembered for next time.
@@ -837,6 +892,16 @@ struct ReplayImpl : public Replay {
 
     void onChanges(int changes) override {
         if (!myIsOpen) return;
+
+        // Opening another simfile or chart ends the replay.
+        if ((changes & (VCM_FILE_CHANGED | VCM_CHART_CHANGED)) &&
+            (OpenSimfileId() != myBoundSimfile ||
+             gChart->get() != myBoundChart)) {
+            closeReplay();
+            HudNote("Replay closed.");
+            return;
+        }
+
         if (changes & (VCM_CHART_CHANGED | VCM_NOTES_CHANGED |
                        VCM_TEMPO_CHANGED | VCM_FILE_CHANGED)) {
             rebuild();

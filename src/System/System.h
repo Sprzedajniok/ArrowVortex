@@ -2,6 +2,8 @@
 
 #include <Core/Input.h>
 #include <filesystem>
+#include <string>
+#include <vector>
 namespace fs = std::filesystem;
 #include <SDL3/SDL.h>
 
@@ -39,6 +41,11 @@ struct System {
     virtual Result showMessageDlg(const std::string& title,
                                   const std::string& text, Buttons buttons,
                                   Icon icon) = 0;
+
+    /// Shows a message box with one button per choice. Returns the index of
+    /// the chosen button, or -1 if the box was closed without choosing.
+    virtual int showChoiceDlg(const std::string& title, const std::string& text,
+                              const std::vector<std::string>& choices) = 0;
 
     /// Shows an open file dialog, see class description.
     virtual fs::path openFileDlg(const std::string& title,

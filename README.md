@@ -70,7 +70,12 @@ a portable one. Both players are recorded, courses get one file per song.
 Open a replay with **Replay > Open replay...** (`Ctrl+Shift+O`), File > Open,
 by dropping it on the window, or by passing it on the command line.
 ArrowVortex opens the simfile and the chart that was played and sets the music
-speed to the rate you played at.
+speed to the rate you played at. Opening another simfile or chart closes the
+replay.
+
+To try it without recording anything, open
+[`replay/tests/example - Into You.avreplay`](replay/tests), a real play of
+*[11] Into You (N-Vision Remix Edit)* (Challenge 11) from Stamina RPG 10.
 
 The replay stores the song's path inside ITGmania (`/Songs/Pack/Song/...`),
 so it does not matter where anyone's game is installed. The simfile is looked
@@ -83,9 +88,10 @@ for, in this order:
    before, the ITGmania folder the replay is in, `%APPDATA%\ITGmania\Songs` and
    `C:\Games\ITGmania\Songs`;
 4. the song folder in any other pack, or any simfile with the same title and
-   artist, so renamed packs and folders still work. When the same song is in
-   several packs, the one with the same chart (steps type, difficulty, meter,
-   description) is used;
+   artist, so renamed packs and folders still work. The same song is often in
+   several packs, so when more than one matches you are asked which one was
+   played; the best match (same steps type, difficulty, meter and description)
+   is listed first;
 5. otherwise you pick the simfile yourself, with a warning if its title does
    not match.
 
@@ -111,7 +117,7 @@ them. On real recordings the recorded press times agree with the engine's to
 well under a millisecond. Presses that no judgment claims are stray taps, and
 times are converted to chart time using the global offset and the music rate.
 
-The viewer code is in `src/Editor/Replay.cpp`, the module and test tools are in
+The viewer code is in `src/Editor/Replay.cpp`, the module and the tests are in
 [replay/](replay/).
 
 ## Building from source
@@ -137,8 +143,8 @@ which takes about 20 minutes. The finished program is
 `dist/bin/ArrowVortex.exe`. See [BUILDING.md](BUILDING.md) for Linux and
 Visual Studio.
 
-Tests for the recorder and a synthetic replay generator are in
-[replay/tools](replay/tools), see [replay/README.md](replay/README.md).
+A test for the recorder, a synthetic replay generator and an example replay
+are in [replay/tests](replay/tests), see [replay/README.md](replay/README.md).
 
 ## ArrowVortex
 
