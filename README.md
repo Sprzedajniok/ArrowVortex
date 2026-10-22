@@ -1,5 +1,10 @@
 # ArrowVortex
 
+> **This fork adds ArrowReplay**, a replay viewer for ITGmania: record your
+> plays with a Simply Love module and scroll through them here, with the timing
+> of every note, misses, stray presses and dropped holds drawn on the chart.
+> See [replay/README.md](replay/README.md).
+
 ArrowVortex is a simfile editor for Windows. It can be used to create or edit stepfiles for various rhythm games, such as StepMania, ITG, osu!, and other games which support DDR-style and/or PIU-style panel layouts.
 
 This is a continuation of the original project by Bram 'Fietsemaker' van de Wetering. He has graciously allowed for the open sourcing of this code so that development can continue.
