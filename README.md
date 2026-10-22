@@ -72,9 +72,25 @@ by dropping it on the window, or by passing it on the command line.
 ArrowVortex opens the simfile and the chart that was played and sets the music
 speed to the rate you played at.
 
-If the song is not in the ITGmania folder the replay came from, in
-`%APPDATA%\ITGmania\Songs` or in `C:\Games\ITGmania\Songs`, you are asked to
-pick the simfile once and its `Songs` folder is remembered.
+The replay stores the song's path inside ITGmania (`/Songs/Pack/Song/...`),
+so it does not matter where anyone's game is installed. The simfile is looked
+for, in this order:
+
+1. the simfile already open in ArrowVortex, if it is the same song and has the
+   played chart;
+2. songs found before (see below);
+3. the same pack and song folder in every known `Songs` folder: ones found
+   before, the ITGmania folder the replay is in, `%APPDATA%\ITGmania\Songs` and
+   `C:\Games\ITGmania\Songs`;
+4. the song folder in any other pack, or any simfile with the same title and
+   artist, so renamed packs and folders still work. When the same song is in
+   several packs, the one with the same chart (steps type, difficulty, meter,
+   description) is used;
+5. otherwise you pick the simfile yourself, with a warning if its title does
+   not match.
+
+Songs found by 4 or 5 and their `Songs` folders are remembered, so the next
+replays of them open right away.
 
 - `F7` / `F8`: previous / next problem (miss, decent, way off, fixed early
   hit, stray tap, dropped hold, hit mine).
