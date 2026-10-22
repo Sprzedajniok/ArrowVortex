@@ -62,6 +62,8 @@ struct Menubar : public InputHandler {
         STATUSBAR_SCROLL,
         STATUSBAR_SPEED,
 
+        REPLAY,
+
         NUM_PROPERTIES
 
     };

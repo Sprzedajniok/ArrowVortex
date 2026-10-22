@@ -13,6 +13,7 @@
 #include <Editor/Music.h>
 #include <Editor/Notefield.h>
 #include <Editor/NotefieldPreview.h>
+#include <Editor/Replay.h>
 #include <Editor/Selection.h>
 #include <Editor/Statusbar.h>
 #include <Editor/TempoBoxes.h>
@@ -832,6 +833,43 @@ bool Action::perform(Type action) {
         }
         case SHOW_ABOUT: {
             gTextOverlay->show(TextOverlay::ABOUT);
+            break;
+        }
+
+        case REPLAY_OPEN: {
+            gReplay->openReplay();
+            break;
+        }
+        case REPLAY_CLOSE: {
+            gReplay->closeReplay();
+            break;
+        }
+        case REPLAY_PREVIOUS_ISSUE: {
+            gReplay->jumpToIssue(false);
+            break;
+        }
+        case REPLAY_NEXT_ISSUE: {
+            gReplay->jumpToIssue(true);
+            break;
+        }
+        case REPLAY_TOGGLE_PRESSES: {
+            gReplay->toggleShowPresses();
+            break;
+        }
+        case REPLAY_TOGGLE_HELD_PANELS: {
+            gReplay->toggleShowHeldPanels();
+            break;
+        }
+        case REPLAY_TOGGLE_LABELS: {
+            gReplay->toggleShowLabels();
+            break;
+        }
+        case REPLAY_TOGGLE_PANEL: {
+            gReplay->toggleShowPanel();
+            break;
+        }
+        case REPLAY_TOGGLE_TIMELINE: {
+            gReplay->toggleShowTimeline();
             break;
         }
 

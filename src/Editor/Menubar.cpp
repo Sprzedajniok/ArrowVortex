@@ -18,6 +18,7 @@
 #include <Editor/Statusbar.h>
 #include <Editor/Notefield.h>
 #include <Editor/NotefieldPreview.h>
+#include <Editor/Replay.h>
 #include <Editor/View.h>
 #include <Editor/Waveform.h>
 #include <Editor/Editing.h>
@@ -60,6 +61,7 @@ struct MenuBarImpl : public Menubar {
     Item* myMinimapMenu;
     Item* myBgStyleMenu;
     Item* myStatusMenu;
+    Item* myReplayMenu;
 
     UpdateFunction myUpdateFunctions[NUM_PROPERTIES];
 
@@ -427,6 +429,20 @@ struct MenuBarImpl : public Menubar {
         sub(myViewMenu, hViewCursor, "Cursor");
         sub(myViewMenu, myStatusMenu, "Status");
 
+        // Replay menu.
+        Item* hReplay = myReplayMenu = newMenu();
+        add(hReplay, REPLAY_OPEN, "Open replay...");
+        add(hReplay, REPLAY_CLOSE, "Close replay");
+        sep(hReplay);
+        add(hReplay, REPLAY_PREVIOUS_ISSUE, "Previous issue");
+        add(hReplay, REPLAY_NEXT_ISSUE, "Next issue");
+        sep(hReplay);
+        add(hReplay, REPLAY_TOGGLE_PRESSES, "Show presses");
+        add(hReplay, REPLAY_TOGGLE_HELD_PANELS, "Show held panels");
+        add(hReplay, REPLAY_TOGGLE_LABELS, "Show timing labels");
+        add(hReplay, REPLAY_TOGGLE_PANEL, "Show summary panel");
+        add(hReplay, REPLAY_TOGGLE_TIMELINE, "Show timeline");
+
         // Help menu.
         Item* hHelp = newMenu();
         add(hHelp, SHOW_SHORTCUTS, "Shortcuts...");
@@ -443,6 +459,7 @@ struct MenuBarImpl : public Menubar {
         sub(menu, hTempo, "Tempo");
         sub(menu, hAudio, "Audio");
         sub(menu, myViewMenu, "View");
+        sub(menu, hReplay, "Replay");
         sub(menu, hHelp, "Help");
 
         update(ALL_PROPERTIES);
@@ -677,6 +694,21 @@ struct MenuBarImpl : public Menubar {
         myUpdateFunctions[STATUSBAR_SPEED] = [] {
             MENU->myStatusMenu->setChecked(TOGGLE_STATUS_SPEED,
                                            gStatusbar->hasSpeed());
+        };
+        myUpdateFunctions[REPLAY] = [] {
+            if (!gReplay) return;
+            Item* menu = MENU->myReplayMenu;
+            bool open = gReplay->isOpen();
+            menu->setEnabled(REPLAY_CLOSE, open);
+            menu->setEnabled(REPLAY_PREVIOUS_ISSUE, open);
+            menu->setEnabled(REPLAY_NEXT_ISSUE, open);
+            menu->setChecked(REPLAY_TOGGLE_PRESSES, gReplay->hasShowPresses());
+            menu->setChecked(REPLAY_TOGGLE_HELD_PANELS,
+                             gReplay->hasShowHeldPanels());
+            menu->setChecked(REPLAY_TOGGLE_LABELS, gReplay->hasShowLabels());
+            menu->setChecked(REPLAY_TOGGLE_PANEL, gReplay->hasShowPanel());
+            menu->setChecked(REPLAY_TOGGLE_TIMELINE,
+                             gReplay->hasShowTimeline());
         };
     }
 

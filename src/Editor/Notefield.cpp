@@ -32,6 +32,7 @@
 #include <Editor/Editing.h>
 #include <Editor/Common.h>
 #include <Editor/NotefieldPreview.h>
+#include <Editor/Replay.h>
 #include <Editor/TextOverlay.h>
 #include <Editor/View.h>
 #include <Editor/Editor.h>
@@ -293,7 +294,9 @@ struct NotefieldImpl : public Notefield {
         drawSnapDiamonds();
 
         if (gChart->isOpen()) {
+            gReplay->drawBelowNotes();
             if (myShowNotes) drawNotes();
+            gReplay->drawAboveNotes();
             if (!gMusic->isPaused()) drawReceptorGlow();
         }
 

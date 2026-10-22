@@ -20,6 +20,7 @@
 
 #include <Editor/View.h>
 #include <Editor/Notefield.h>
+#include <Editor/Replay.h>
 #include <Editor/NotefieldPreview.h>
 #include <Editor/TempoBoxes.h>
 #include <Editor/Waveform.h>
@@ -73,10 +74,11 @@ struct DialogEntry {
     bool requestOpen;
 };
 
-#define LOAD_FILTERS_COUNT 9
+#define LOAD_FILTERS_COUNT 10
 static SDL_DialogFileFilter loadFilters[] = {
-    {"Supported Media (*.sm, *.ssc, *.dwi, *.osu, *.ogg, *.mp3, *.wav)",
-     "sm;ssc;dwi;osu;ogg;mp3;wav"},
+    {"Supported Media (*.sm, *.ssc, *.dwi, *.osu, *.ogg, *.mp3, *.wav, "
+     "*.avreplay)",
+     "sm;ssc;dwi;osu;ogg;mp3;wav;avreplay"},
     {"Stepmania/ITG (*.sm)", "sm"},
     {"Stepmania 5 (*.ssc)", "ssc"},
     {"Dance With Intensity (*.dwi)", "dwi"},
@@ -84,6 +86,7 @@ static SDL_DialogFileFilter loadFilters[] = {
     {"Ogg Vorbis (*.ogg)", "ogg"},
     {"MP3 Audio (*.mp3)", "mp3"},
     {"Waveform (*.wav)", "wav"},
+    {"ArrowReplay (*.avreplay)", "avreplay"},
     {"All Files (*.*)", "*"},
 };
 
@@ -252,6 +255,7 @@ struct EditorImpl : public Editor, public InputHandler {
         Editing::create(settings);
         View::create(settings);
         Notefield::create(settings);
+        Replay::create(settings);
         NotefieldPreview::create(settings);
         TempoBoxes::create(settings);
         Waveform::create(settings);
@@ -281,6 +285,7 @@ struct EditorImpl : public Editor, public InputHandler {
         gEditing->saveSettings(settings);
         gWaveform->saveSettings(settings);
         gNotefield->saveSettings(settings);
+        gReplay->saveSettings(settings);
         gNotefieldPreview->saveSettings(settings);
         gTempoBoxes->saveSettings(settings);
         gView->saveSettings(settings);
@@ -298,6 +303,7 @@ struct EditorImpl : public Editor, public InputHandler {
         Editing::destroy();
         Waveform::destroy();
         TempoBoxes::destroy();
+        Replay::destroy();
         Notefield::destroy();
         NotefieldPreview::destroy();
         View::destroy();
@@ -520,6 +526,7 @@ struct EditorImpl : public Editor, public InputHandler {
     }
 
     bool openSimfile(fs::path path) override {
+        if (Replay::isReplayFile(path)) return gReplay->openReplay(path);
         bool result = false;
         if (!path.empty() && closeSimfile()) {
             if (gSimfile->load(path)) {
@@ -885,6 +892,10 @@ struct EditorImpl : public Editor, public InputHandler {
         if (numArgs >= 2 && args[1].length()) {
             fs::path path = utf8ToPath(gSystem->getRunDir());
             path.append(stringToUtf8(args[1]));
+            if (Replay::isReplayFile(path)) {
+                gReplay->openReplay(path);
+                return;
+            }
             openSimfile(findSimfile(path, false));
         }
     }
@@ -892,6 +903,10 @@ struct EditorImpl : public Editor, public InputHandler {
     void onFileDrop(FileDrop& evt) override {
         if (evt.count >= 1) {
             fs::path path = utf8ToPath(evt.files[0]);
+            if (Replay::isReplayFile(path)) {
+                gReplay->openReplay(path);
+                return;
+            }
             if (!openSimfile(findSimfile(path, false))) {
                 if (canConvertAudio(pathToUtf8(path).c_str())) {
                     gMusic->startAudioConversion(path, true);
@@ -921,6 +936,7 @@ struct EditorImpl : public Editor, public InputHandler {
         gMinimap->onChanges(myChanges);
         gEditing->onChanges(myChanges);
         gNotefield->onChanges(myChanges);
+        gReplay->onChanges(myChanges);
         gTempoBoxes->onChanges(myChanges);
         gWaveform->onChanges(myChanges);
 
@@ -1023,6 +1039,7 @@ struct EditorImpl : public Editor, public InputHandler {
         gTextOverlay->tick();
         gHistory->handleInputs(events);
         gMinimap->handleInputs(events);
+        gReplay->handleInputs(events);
         gEditing->handleInputs(events);
 
         if (gSimfile->isOpen()) {
@@ -1035,6 +1052,7 @@ struct EditorImpl : public Editor, public InputHandler {
 
         if (gSimfile->isOpen()) {
             gMinimap->tick();
+            gReplay->tick();
             gTempoBoxes->tick();
             gWaveform->tick();
         }
@@ -1052,6 +1070,7 @@ struct EditorImpl : public Editor, public InputHandler {
             gNotefield->draw();
             gMinimap->draw();
             gStatusbar->draw();
+            gReplay->drawPanel();
         } else {
             drawLogo();
         }
