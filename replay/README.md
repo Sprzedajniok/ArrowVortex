@@ -7,8 +7,8 @@ recorder, the replay file format and the tests.
 ## Files
 
 - `ArrowReplay.lua`: the Simply Love module that records replays.
-- `tests/example - Into You.avreplay`: a real replay of *[11] Into You
-  (N-Vision Remix Edit)* (Challenge 11) from Stamina RPG 10, to try the viewer
+- `tests/example - Into You (SRPG10).avreplay`: a real replay of *[11] Into You
+  (N-Vision Remix Edit)* (Challenge 11) from Stamina RPG 10 (SRPG10), to try the viewer
   without recording anything.
 - `tests/test_recorder.py`: runs the module against a mocked ITGmania Lua API.
 - `tests/make_test_replay.py`: writes a synthetic replay for a `.sm` chart.
@@ -69,7 +69,7 @@ python tests/make_test_replay.py SONG.sm "/Songs/Pack/Song/song.sm" out.avreplay
 ```
 
 `make_test_replay.py` prints the judgment counts it generated, which should
-match the viewer's summary panel. Opening `tests/example - Into You.avreplay`
+match the viewer's summary panel. Opening `tests/example - Into You (SRPG10).avreplay`
 checks the viewer on a real recording.
 
 ## Limitations

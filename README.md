@@ -74,8 +74,8 @@ speed to the rate you played at. Opening another simfile or chart closes the
 replay.
 
 To try it without recording anything, open
-[`replay/tests/example - Into You.avreplay`](replay/tests), a real play of
-*[11] Into You (N-Vision Remix Edit)* (Challenge 11) from Stamina RPG 10.
+[`replay/tests/example - Into You (SRPG10).avreplay`](replay/tests), a real play of
+*[11] Into You (N-Vision Remix Edit)* (Challenge 11) from Stamina RPG 10 (SRPG10), so it opens if you have that pack.
 
 The replay stores the song's path inside ITGmania (`/Songs/Pack/Song/...`),
 so it does not matter where anyone's game is installed. The simfile is looked
