@@ -264,9 +264,7 @@ struct Drawer {
             } else {
                 text = std::format("{:+.0f}", it->offset * 1000.0);
                 if (it->earlyJudge >= 0) {
-                    extra = std::format("fixed from {} {:+.0f}",
-                                        kJudgeNames[it->earlyJudge],
-                                        it->earlyOffset * 1000.0);
+                    extra = std::format("({:+.0f})", it->earlyOffset * 1000.0);
                     extraColor = kJudgeColors[it->earlyJudge];
                 }
             }
@@ -322,13 +320,15 @@ struct Drawer {
                     style.textColor = labels[k].color;
                     Text::arrange(Text::ML, style, text.c_str());
                     Text::draw(vec2i{x, y});
-                    x += Text::getSize().x + 8;
+                    x += Text::getSize().x;
+                    // The early hit that was fixed, right after the offset.
                     if (!labels[k].extra.empty()) {
                         style.textColor = labels[k].extraColor;
                         Text::arrange(Text::ML, style, labels[k].extra.c_str());
-                        Text::draw(vec2i{x - 4, y});
-                        x += Text::getSize().x + 4;
+                        Text::draw(vec2i{x, y});
+                        x += Text::getSize().x;
                     }
+                    x += 8;
                 }
             }
             i = j;

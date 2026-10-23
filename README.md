@@ -27,7 +27,7 @@ misses, dropped holds and hit mines.
 | Mark | Meaning |
 | --- | --- |
 | Colored bar with a line to the note | The press that hit the note, in the judgment color (blue FA+, white Fantastic, gold Excellent, green Great, purple Decent, brown Way Off) |
-| Bar with a dashed line to the note, label `fixed from Decent -113` | An early decent/way off that a later press fixed (ITGmania's early hit rescoring) |
+| Bar with a dashed line to the note, label `+12(-113)` | An early decent/way off that a later press fixed (ITGmania's early hit rescoring): the final offset, and the early one in brackets in its judgment color |
 | Thick pink bar, `stray` | A press that did not activate anything |
 | Gray bar | A press during a hold or roll |
 | Red box, `MISS` | A miss (`MISS (held)` if the panel was held down) |
