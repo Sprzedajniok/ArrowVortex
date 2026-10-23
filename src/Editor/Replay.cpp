@@ -496,9 +496,14 @@ struct ReplayImpl : public Replay {
     bool myShowTimeline = true;
     bool myIsDragging = false;
 
-    /// The simfile and chart the replay is shown on, see OpenSimfileId.
+    /// The simfile and chart the replay is shown on, see OpenSimfileId. The
+    /// chart is null while the chart that is open is not the played one.
     std::string myBoundSimfile;
     const Chart* myBoundChart = nullptr;
+
+    /// The music speed before the replay changed it, and the speed it set.
+    int mySpeedBefore = 100;
+    int myReplaySpeed = 100;
 
     // ================================================================================================
     // ReplayImpl :: settings.
@@ -568,16 +573,17 @@ struct ReplayImpl : public Replay {
         bool useCurrent = false, remember = false;
         fs::path simfile = locateSimfile(path, file, useCurrent, remember);
         if (!useCurrent) {
+            // No simfile means the user cancelled choosing one.
             if (simfile.empty()) {
-                HudError("No simfile for \"%s\", the replay was not opened.",
-                         file.get("Title").c_str());
+                HudNote("No simfile was chosen, the replay was not opened.");
                 return false;
             }
             if (!gEditor->openSimfile(simfile)) return false;
-            rememberSongRoot(simfile);
+            rememberSongRoot(simfile, file);
             if (remember) rememberSongFile(SongKey(file), simfile);
         }
 
+        if (!myIsOpen) mySpeedBefore = gMusic->getSpeed();
         myFile = std::move(file);
         myPath = path;
         myIsOpen = true;
@@ -588,10 +594,9 @@ struct ReplayImpl : public Replay {
                        myFile.get("Meter").c_str());
         }
         myBoundSimfile = OpenSimfileId();
-        myBoundChart = gChart->get();
 
-        int speed = static_cast<int>(std::lround(myFile.rate * 100.0));
-        if (gMusic->getSpeed() != speed) gMusic->setSpeed(speed);
+        gMusic->setSpeed(static_cast<int>(std::lround(myFile.rate * 100.0)));
+        myReplaySpeed = gMusic->getSpeed();
 
         rebuild();
         gMenubar->update(Menubar::REPLAY);
@@ -606,6 +611,10 @@ struct ReplayImpl : public Replay {
     }
 
     void closeReplay() override {
+        // Undo the speed change, unless the speed was changed since.
+        if (myIsOpen && gMusic->getSpeed() == myReplaySpeed) {
+            gMusic->setSpeed(mySpeedBefore);
+        }
         myIsOpen = false;
         myBoundSimfile.clear();
         myBoundChart = nullptr;
@@ -621,6 +630,17 @@ struct ReplayImpl : public Replay {
     static std::string SongKey(const ReplayFile& file) {
         std::string key = file.get("SimfilePath");
         return key.empty() ? file.get("SongDir") : key;
+    }
+
+    // The replay's song path split into folders ("Songs", pack, song folder)
+    // and the simfile name, which is empty if the replay has no simfile path.
+    static std::vector<std::string> SongPathParts(const ReplayFile& file) {
+        auto parts = Str::split(file.get("SimfilePath"), "/", false, true);
+        if (parts.size() < 4) {
+            parts = Str::split(file.get("SongDir"), "/", false, true);
+            parts.emplace_back();
+        }
+        return parts;
     }
 
     // Returns true if the title and artist match the song of the replay.
@@ -654,11 +674,7 @@ struct ReplayImpl : public Replay {
     // was not where the replay says.
     fs::path locateSimfile(const fs::path& replayPath, const ReplayFile& file,
                            bool& useCurrent, bool& remember) {
-        auto parts = Str::split(file.get("SimfilePath"), "/", false, true);
-        if (parts.size() < 4) {
-            parts = Str::split(file.get("SongDir"), "/", false, true);
-            parts.emplace_back();
-        }
+        auto parts = SongPathParts(file);
         std::string pack, song, name;
         size_t n = parts.size();
         if (n >= 3)
@@ -848,15 +864,24 @@ struct ReplayImpl : public Replay {
     }
 
     // Remembers the folder that holds the packs, so the next replays from it
-    // open without asking.
-    void rememberSongRoot(const fs::path& simfile) {
-        fs::path root = simfile.parent_path().parent_path().parent_path();
-        if (root.empty()) return;
+    // open without asking. A simfile the user picked can be anywhere, so the
+    // folder is only taken if it is called Songs or the pack folder has the
+    // name of the replay's pack. Most recent first.
+    void rememberSongRoot(const fs::path& simfile, const ReplayFile& file) {
+        const size_t kMaxRoots = 20;
+        fs::path pack = simfile.parent_path().parent_path();
+        fs::path root = pack.parent_path();
+        if (root.empty() || root == root.root_path()) return;
+        auto parts = SongPathParts(file);
+        size_t n = parts.size();
+        bool isRoot =
+            Str::iequal(pathToUtf8(root.filename()), "Songs") ||
+            (n >= 3 && Str::iequal(pathToUtf8(pack.filename()), parts[n - 3]));
+        if (!isRoot) return;
         std::string str = pathToUtf8(root);
-        if (std::find(mySongRoots.begin(), mySongRoots.end(), str) ==
-            mySongRoots.end()) {
-            mySongRoots.push_back(str);
-        }
+        std::erase(mySongRoots, str);
+        mySongRoots.insert(mySongRoots.begin(), str);
+        if (mySongRoots.size() > kMaxRoots) mySongRoots.resize(kMaxRoots);
     }
 
     // Opens the chart that matches the steps type and difficulty of the
@@ -893,17 +918,20 @@ struct ReplayImpl : public Replay {
     void onChanges(int changes) override {
         if (!myIsOpen) return;
 
-        // Opening another simfile or chart ends the replay.
+        // Opening another simfile, or another chart while the replay is
+        // shown, ends the replay. While the played chart is not open, any
+        // chart can be opened to find it.
         if ((changes & (VCM_FILE_CHANGED | VCM_CHART_CHANGED)) &&
             (OpenSimfileId() != myBoundSimfile ||
-             gChart->get() != myBoundChart)) {
+             (myBoundChart && gChart->get() != myBoundChart))) {
             closeReplay();
             HudNote("Replay closed.");
             return;
         }
 
-        if (changes & (VCM_CHART_CHANGED | VCM_NOTES_CHANGED |
-                       VCM_TEMPO_CHANGED | VCM_FILE_CHANGED)) {
+        if (changes &
+            (VCM_CHART_CHANGED | VCM_CHART_PROPERTIES_CHANGED |
+             VCM_NOTES_CHANGED | VCM_TEMPO_CHANGED | VCM_FILE_CHANGED)) {
             rebuild();
         }
     }
@@ -983,10 +1011,12 @@ struct ReplayImpl : public Replay {
         myStatus.clear();
         if (!myIsOpen) return;
         if (gChart->isClosed() || !chartMatches()) {
+            myBoundChart = nullptr;
             myStatus = "Open the " + StripEnumPrefix(myFile.get("Difficulty")) +
                        " " + myFile.get("Meter") + " chart to see the replay.";
             return;
         }
+        myBoundChart = gChart->get();
         const int numCols = gStyle->getNumCols();
         if (numCols != myFile.columns) {
             myStatus = "The replay has a different number of columns.";
