@@ -125,7 +125,7 @@ them. On real recordings the recorded press times agree with the engine's to
 well under a millisecond. Presses that no judgment claims are stray taps, and
 times are converted to chart time using the global offset and the music rate.
 
-The viewer code is in `src/Editor/Replay.cpp`, the module and the tests are in
+The viewer code is in `src/Editor/Replay*.cpp`, the module and the tests are in
 [replay/](replay/).
 
 ## Building from source

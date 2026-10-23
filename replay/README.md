@@ -13,7 +13,11 @@ recorder, the replay file format and the tests.
 - `tests/test_recorder.py`: runs the module against a mocked ITGmania Lua API.
 - `tests/make_test_replay.py`: writes a synthetic replay for a `.sm` chart.
 - `screenshots/`: images used by the main README.
-- The viewer itself is `src/Editor/Replay.cpp`.
+- The viewer itself is in `src/Editor/`: `Replay.cpp` (opening replays and
+  keeping them on their chart), `ReplayFile.cpp` (reading the file),
+  `ReplayLocate.cpp` (finding the simfile), `ReplayMatch.cpp` (matching the
+  replay to the chart) and `ReplayDraw.cpp` (notefield marks, summary panel
+  and timeline).
 
 ## Recorder
 
