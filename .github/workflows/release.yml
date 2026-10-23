@@ -69,6 +69,8 @@ jobs:
           if-no-files-found: error
   linux:
     name: "Build Linux x64"
+    # Not built on the ArrowReplay fork.
+    if: github.repository_owner == 'uvcat7'
     runs-on: ubuntu-latest
     permissions:
       contents: read
