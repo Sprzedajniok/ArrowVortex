@@ -97,14 +97,11 @@ python tests/check_report.py report.txt truth.json
 
 ## Releases
 
-Pushing an annotated tag `arrowreplay-vX.Y.Z` builds and tests ArrowVortex in
-the CI and publishes `ArrowReplay-vX.Y.Z-win64.zip` as a release. The first
-line of the tag message is skipped, the rest becomes the release notes:
-
-```sh
-git tag -a arrowreplay-v0.2.0 -F notes.txt
-git push origin arrowreplay-v0.2.0
-```
+Put the release notes in `release-notes.md`, then run the ArrowReplay workflow
+in the Actions tab ("Run workflow") with the version, e.g. `v0.2.0`. It builds
+and tests ArrowVortex, creates the tag `arrowreplay-v0.2.0` and publishes
+`ArrowReplay-v0.2.0-win64.zip` as a release. Pushing a tag `arrowreplay-v0.2.0`
+does the same.
 
 ## Limitations
 

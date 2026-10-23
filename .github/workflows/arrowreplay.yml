@@ -11,6 +11,11 @@ on:
     paths-ignore:
       - '**.md'
   workflow_dispatch:
+    inputs:
+      release:
+        description: Version to publish as a release, e.g. v0.2.0 (empty for a normal build)
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -103,20 +108,21 @@ jobs:
             python replay/tests/check_report.py "$name.txt" "$name.json"
             if ($LASTEXITCODE -ne 0 -or $av.ExitCode -ne 0) { exit 1 }
           }
-      # Pushing an annotated tag like arrowreplay-v0.2.0 publishes the tested
-      # build as a release, with the tag message (after its first line) as the
-      # release notes.
+      # Publishes the tested build as a release, for a pushed arrowreplay-v*
+      # tag or when the workflow is run by hand with a version. The release
+      # notes are replay/release-notes.md.
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/arrowreplay-v')
+        if: >-
+          startsWith(github.ref, 'refs/tags/arrowreplay-v') ||
+          (github.event_name == 'workflow_dispatch' && inputs.release != '')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.release || github.ref_name }}
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag -replace '^arrowreplay-', ''
+          $version = $env:VERSION -replace '^arrowreplay-', ''
+          if ($version -notmatch '^v\d+\.\d+\.\d+$') { throw "Not a version: $version" }
+          $tag = "arrowreplay-$version"
           $zip = "ArrowReplay-$version-win64.zip"
           Compress-Archive -Path package\* -DestinationPath $zip
-          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
-          git for-each-ref "refs/tags/$tag" --format='%(contents:body)' | Out-File -Encoding utf8 notes.md
-          Get-Content notes.md
-          gh release create $tag $zip --title "ArrowReplay $version" --notes-file notes.md
+          gh release create $tag $zip --target $env:GITHUB_SHA --title "ArrowReplay $version" --notes-file replay/release-notes.md
