@@ -1,0 +1,79 @@
+# CI for the ArrowReplay fork. The upstream workflows (release.yml and
+# codeql.yml) need uvcat7's NuGet package feed and do not work here.
+
+name: ArrowReplay
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  formatting:
+    name: Check formatting
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check formatting with clang-format
+        shell: bash
+        run: >
+          clang-format --dry-run --Werror -style=file
+          $(find src/ -type f \( -name '*.cpp' -o -name '*.h' -o -name '*.c' -o -name '*.hpp' \))
+
+  recorder:
+    name: Recorder test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run the recorder against a mocked ITGmania
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install lupa
+          .venv/bin/python replay/tests/test_recorder.py replay/ArrowReplay.lua
+
+  windows:
+    name: Build Windows x64
+    runs-on: windows-2022
+    env:
+      # Built packages are kept in the Actions cache, the first build (with
+      # FFmpeg) takes about an hour, later ones a few minutes.
+      VCPKG_BINARY_SOURCES: "clear;files,${{ github.workspace }}\\vcpkg-cache,readwrite"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Get the vcpkg version
+        id: vcpkg
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force vcpkg-cache | Out-Null
+          "commit=$(git -C "$env:VCPKG_INSTALLATION_ROOT" rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+      - name: Cache vcpkg packages
+        uses: actions/cache@v6
+        with:
+          path: vcpkg-cache
+          key: vcpkg-windows-${{ steps.vcpkg.outputs.commit }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-windows-
+      - name: Configure CMake
+        run: >
+          cmake -Bbuild -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
+          -DVCPKG_TARGET_TRIPLET=x64-windows-static-md
+          -DYML=YML
+      - name: Build
+        run: cmake --build build --config Release --parallel "$env:NUMBER_OF_PROCESSORS"
+      - name: Package like the release zip
+        shell: pwsh
+        run: |
+          cmake --install build --config Release --prefix dist
+          New-Item -ItemType Directory -Force "package/Simply Love module", "package/Example" | Out-Null
+          Move-Item dist/bin package/ArrowVortex
+          Copy-Item replay/ArrowReplay.lua "package/Simply Love module/"
+          Copy-Item "replay/tests/example - Into You (SRPG10).avreplay" package/Example/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ArrowReplay-win64-${{ github.sha }}
+          path: package/
+          if-no-files-found: error
