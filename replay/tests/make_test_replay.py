@@ -6,8 +6,13 @@ windows. Only constant-BPM-segment charts without warps are supported.
 
 usage: make_test_replay.py SIMFILE.sm VIRTUAL_PATH OUT.avreplay
        [--difficulty Challenge] [--rate 1.0] [--global-offset 0.0] [--seed 1]
+       [--truth TRUTH.json]
+
+The judgment counts it generated are printed, and written to TRUTH.json if
+given, see check_report.py.
 """
 import argparse
+import json
 import random
 
 ROWS = 48
@@ -97,6 +102,7 @@ def main():
     ap.add_argument('--rate', type=float, default=1.0)
     ap.add_argument('--global-offset', type=float, default=0.0)
     ap.add_argument('--seed', type=int, default=1)
+    ap.add_argument('--truth')
     args = ap.parse_args()
 
     rnd = random.Random(args.seed)
@@ -233,6 +239,9 @@ def main():
             f.write(line + '\n')
         f.write('END\t%.6f\t0\tScreenEvaluationStage\n' % end)
     print(truth)
+    if args.truth:
+        with open(args.truth, 'w', encoding='utf-8') as f:
+            json.dump(truth, f, indent=1)
 
 
 if __name__ == '__main__':

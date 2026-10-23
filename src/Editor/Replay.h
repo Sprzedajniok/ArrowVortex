@@ -20,6 +20,13 @@ struct Replay : public InputHandler {
     /// Returns true if the path has the replay file extension.
     static bool isReplayFile(const fs::path& path);
 
+    /// Matches a replay to the chart it was played on in the given simfile and
+    /// writes the summary to a text file, without opening the editor. Used by
+    /// "ArrowVortex --replay-report REPLAY SIMFILE OUT" and the CI tests.
+    /// Returns false (and writes the error) if the replay can not be shown.
+    static bool writeReport(const fs::path& replay, const fs::path& simfile,
+                            const fs::path& out);
+
     virtual void saveSettings(XmrNode& settings) = 0;
 
     /// Called by the editor when changes were made to the simfile.

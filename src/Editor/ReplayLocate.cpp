@@ -248,26 +248,25 @@ static bool IsSameSong(const SongInfo& info, const ReplayFile& file) {
 
 // ChartScore for the simfile that is open.
 static int OpenChartScore(const ReplayFile& file) {
-    std::string type = StripEnumPrefix(file.get("StepsType"));
-    Str::toLower(type);
-    std::replace(type.begin(), type.end(), '_', '-');
-    const std::string diff = StripEnumPrefix(file.get("Difficulty"));
-    const int meter = Str::readInt(file.get("Meter"), -1);
     int best = 0;
     for (int i = 0; i < gSimfile->getNumCharts(); ++i) {
-        const Chart* chart = gSimfile->getChart(i);
-        if (!chart->style || chart->style->id != type) continue;
-        if (!Str::iequal(GetDifficultyName(chart->difficulty), diff)) {
-            continue;
-        }
-        int score = 1 + (chart->meter == meter ? 2 : 0) +
-                    (chart->artist == file.get("Description") ? 1 : 0);
-        best = std::max(best, score);
+        best = std::max(best, ScoreReplayChart(file, *gSimfile->getChart(i)));
     }
     return best;
 }
 
 };  // anonymous namespace
+
+int ScoreReplayChart(const ReplayFile& file, const Chart& chart) {
+    std::string type = StripEnumPrefix(file.get("StepsType"));
+    Str::toLower(type);
+    std::replace(type.begin(), type.end(), '_', '-');
+    const std::string diff = StripEnumPrefix(file.get("Difficulty"));
+    if (!chart.style || chart.style->id != type) return 0;
+    if (!Str::iequal(GetDifficultyName(chart.difficulty), diff)) return 0;
+    return 1 + (chart.meter == Str::readInt(file.get("Meter"), -1) ? 2 : 0) +
+           (chart.artist == file.get("Description") ? 1 : 0);
+}
 
 // ================================================================================================
 // ReplayLibrary.

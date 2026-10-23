@@ -54,6 +54,7 @@ list(APPEND SRC
 	"ReplayFile.cpp"
 	"ReplayLocate.cpp"
 	"ReplayMatch.cpp"
+	"ReplayReport.cpp"
 	"Selection.cpp"
 	"Shortcuts.cpp"
 	"Sound.cpp"

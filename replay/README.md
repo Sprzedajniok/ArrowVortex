@@ -12,6 +12,10 @@ recorder, the replay file format and the tests.
   without recording anything.
 - `tests/test_recorder.py`: runs the module against a mocked ITGmania Lua API.
 - `tests/make_test_replay.py`: writes a synthetic replay for a `.sm` chart.
+- `tests/test_chart.sm`: a generated chart (taps, jumps, holds, rolls, mines,
+  a BPM change and a stop) for the viewer test.
+- `tests/check_report.py`: compares the viewer's replay report with the
+  judgments `make_test_replay.py` generated.
 - `screenshots/`: images used by the main README.
 - The viewer itself is in `src/Editor/`: `Replay.cpp` (opening replays and
   keeping them on their chart), `ReplayFile.cpp` (reading the file),
@@ -81,6 +85,15 @@ python tests/make_test_replay.py SONG.sm "/Songs/Pack/Song/song.sm" out.avreplay
 `make_test_replay.py` prints the judgment counts it generated, which should
 match the viewer's summary panel. Opening `tests/example - Into You (SRPG10).avreplay`
 checks the viewer on a real recording.
+
+The viewer can also write its summary without opening a window, which the CI
+does after every Windows build:
+
+```sh
+python tests/make_test_replay.py tests/test_chart.sm "/Songs/Tests/Test/test_chart.sm" test.avreplay --truth truth.json
+ArrowVortex --replay-report test.avreplay tests/test_chart.sm report.txt
+python tests/check_report.py report.txt truth.json
+```
 
 ## Limitations
 

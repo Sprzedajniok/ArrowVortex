@@ -179,24 +179,9 @@ struct ReplayImpl : public Replay {
     // Opens the chart that matches the steps type and difficulty of the
     // replay. Returns false if none was found.
     bool selectChart() {
-        std::string styleId = StripEnumPrefix(myFile.get("StepsType"));
-        Str::toLower(styleId);
-        std::replace(styleId.begin(), styleId.end(), '_', '-');
-
-        std::string diffName = StripEnumPrefix(myFile.get("Difficulty"));
-        int meter = Str::readInt(myFile.get("Meter"), -1);
-        std::string description = myFile.get("Description");
-
-        int best = -1, bestScore = -1;
+        int best = -1, bestScore = 0;
         for (int i = 0; i < gSimfile->getNumCharts(); ++i) {
-            const Chart* chart = gSimfile->getChart(i);
-            if (!chart->style || chart->style->id != styleId) continue;
-            if (!Str::iequal(GetDifficultyName(chart->difficulty), diffName)) {
-                continue;
-            }
-            int score = 1;
-            if (chart->meter == meter) score += 2;
-            if (chart->artist == description) score += 1;
+            int score = ScoreReplayChart(myFile, *gSimfile->getChart(i));
             if (score > bestScore) best = i, bestScore = score;
         }
         if (best < 0) return false;
@@ -232,13 +217,7 @@ struct ReplayImpl : public Replay {
     // on.
     bool chartMatches() {
         const Chart* chart = gChart->get();
-        if (!chart || !chart->style) return false;
-        std::string styleId = StripEnumPrefix(myFile.get("StepsType"));
-        Str::toLower(styleId);
-        std::replace(styleId.begin(), styleId.end(), '_', '-');
-        std::string diffName = StripEnumPrefix(myFile.get("Difficulty"));
-        return chart->style->id == styleId &&
-               Str::iequal(GetDifficultyName(chart->difficulty), diffName);
+        return chart && ScoreReplayChart(myFile, *chart) > 0;
     }
 
     void rebuild() {

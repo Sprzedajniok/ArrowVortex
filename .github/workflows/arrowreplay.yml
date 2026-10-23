@@ -80,3 +80,24 @@ jobs:
           name: ArrowReplay-win64-${{ github.sha }}
           path: package/
           if-no-files-found: error
+      # Runs the built ArrowVortex on generated replays of the test chart and
+      # checks that its summary has the judgments the replays were made with.
+      - name: Test the replay viewer
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          $chart = "$pwd\replay\tests\test_chart.sm"
+          $cases = @{
+            "normal" = @("--seed", "1")
+            "rate" = @("--rate", "1.25", "--global-offset", "-0.008", "--seed", "2")
+          }
+          foreach ($name in $cases.Keys) {
+            Write-Host "== $name"
+            python replay/tests/make_test_replay.py $chart "/Songs/ArrowReplay Tests/Test Chart/test_chart.sm" "$name.avreplay" --truth "$name.json" @($cases[$name])
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $av = Start-Process -FilePath "package\ArrowVortex\ArrowVortex.exe" -Wait -PassThru -ArgumentList @(
+              "--replay-report", "`"$pwd\$name.avreplay`"", "`"$chart`"", "`"$pwd\$name.txt`"")
+            Write-Host "ArrowVortex exit code: $($av.ExitCode)"
+            python replay/tests/check_report.py "$name.txt" "$name.json"
+            if ($LASTEXITCODE -ne 0 -or $av.ExitCode -ne 0) { exit 1 }
+          }

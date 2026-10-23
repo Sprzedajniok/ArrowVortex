@@ -17,6 +17,7 @@
 
 #include <Editor/Editor.h>
 #include <Editor/Menubar.h>
+#include <Editor/Replay.h>
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL.h>
@@ -618,10 +619,23 @@ static void ApplicationEnd() {
 }
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
+    // "--replay-report REPLAY SIMFILE OUT" writes a replay summary without
+    // opening the editor, see Replay::writeReport. The paths are made absolute
+    // before the working directory changes.
+    std::vector<fs::path> report;
+    if (argc == 5 && std::string(argv[1]) == "--replay-report") {
+        for (int i = 2; i < 5; ++i) {
+            report.push_back(fs::absolute(utf8ToPath(argv[i])));
+        }
+    }
 #ifdef WIN32
     std::wstring exe_folder = Widen(SDL_GetBasePath());
     SetCurrentDirectoryW(exe_folder.c_str());
 #endif
+    if (!report.empty()) {
+        bool success = Replay::writeReport(report[0], report[1], report[2]);
+        return success ? SDL_APP_SUCCESS : SDL_APP_FAILURE;
+    }
     ApplicationStart();
 #ifndef NDEBUG
     Debug::openConsole();

@@ -10,6 +10,13 @@
 
 namespace Vortex {
 
+struct Chart;
+
+/// How well a chart matches the chart of a replay: 0 if the steps type or
+/// the difficulty differ, otherwise 1, plus 2 if the meter and 1 if the
+/// description match too.
+int ScoreReplayChart(const ReplayFile& file, const Chart& chart);
+
 /// Finds the simfile a replay was played on, and remembers songs and the
 /// folders that hold packs when they were found in another place than the
 /// replay says.
