@@ -49,8 +49,9 @@ to jump.
 
 ## Installing
 
-Download `ArrowReplay-v0.1.0-win64.zip` from
-[Releases](https://github.com/Sprzedajniok/ArrowVortex/releases) and unzip it.
+Download `ArrowReplay-vX.Y.Z-win64.zip` from the
+[latest release](https://github.com/Sprzedajniok/ArrowVortex/releases/latest)
+and unzip it.
 
 1. **Recorder:** copy `Simply Love module/ArrowReplay.lua` into the `Modules`
    folder of your Simply Love theme, e.g.
@@ -70,8 +71,10 @@ a portable one. Both players are recorded, courses get one file per song.
 Open a replay with **Replay > Open replay...** (`Ctrl+Shift+O`), File > Open,
 by dropping it on the window, or by passing it on the command line.
 ArrowVortex opens the simfile and the chart that was played and sets the music
-speed to the rate you played at. Opening another simfile or chart closes the
-replay.
+speed to the rate you played at (closing the replay sets it back). Opening
+another simfile, or another chart while the replay is shown, closes the replay.
+If the played chart is not found, you can open or create it and the replay
+shows up on it.
 
 To try it without recording anything, open
 [`replay/tests/example - Into You (SRPG10).avreplay`](replay/tests), a real play of

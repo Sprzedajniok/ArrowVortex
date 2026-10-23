@@ -35,6 +35,7 @@
 #include <Editor/Editor.h>
 #include <Editor/Menubar.h>
 #include <Editor/Music.h>
+#include <Editor/Shortcuts.h>
 #include <Editor/TextOverlay.h>
 #include <Editor/View.h>
 
@@ -1179,9 +1180,12 @@ struct ReplayImpl : public Replay {
             // The press the engine judged is the one at note time + offset.
             int bestTarget = -1, bestPress = -1;
             double bestErr = tolerance;
-            for (int i = 0; i < static_cast<int>(colPresses.size()); ++i) {
+            auto first = std::lower_bound(
+                colPresses.begin(), colPresses.end(), t - lookback,
+                [](const Press& p, double v) { return p.time < v; });
+            for (int i = static_cast<int>(first - colPresses.begin());
+                 i < static_cast<int>(colPresses.size()); ++i) {
                 const Press& p = colPresses[i];
-                if (p.time < t - lookback) continue;
                 if (p.time > t + 0.05) break;
                 if (p.down == lift || p.mark >= 0) continue;
                 int target = nearestFree(targets, p.time + bias - off, bestErr);
@@ -1327,10 +1331,14 @@ struct ReplayImpl : public Replay {
             const double t = e.time + shift;
 
             // The latest hold that started before the result came in.
+            auto& targets = taps[e.col];
+            auto it = std::upper_bound(
+                targets.begin(), targets.end(), t + 0.005,
+                [](double v, const Target& target) { return v < target.time; });
             Target* hold = nullptr;
-            for (auto& target : taps[e.col]) {
-                if (target.time > t + 0.005) break;
-                if (target.hold && !target.holdJudged) hold = &target;
+            while (it != targets.begin() && !hold) {
+                --it;
+                if (it->hold && !it->holdJudged) hold = &*it;
             }
             if (!hold) continue;
             hold->holdJudged = true;
@@ -1758,7 +1766,19 @@ struct ReplayImpl : public Replay {
                 text += std::format("\n{{tc:888}}Not judged  {}{{tc}}",
                                     myStats.unjudged);
             }
-            text += "\n\n{tc:777}F7 / F8: previous / next issue{tc}";
+            std::string prev =
+                gShortcuts->getNotation(Action::REPLAY_PREVIOUS_ISSUE, false);
+            std::string next =
+                gShortcuts->getNotation(Action::REPLAY_NEXT_ISSUE, false);
+            if (!prev.empty() && !next.empty()) {
+                text += std::format(
+                    "\n\n{{tc:777}}{} / {}: previous / next issue{{tc}}", prev,
+                    next);
+            } else if (!prev.empty() || !next.empty()) {
+                text += std::format("\n\n{{tc:777}}{}: {} issue{{tc}}",
+                                    prev.empty() ? next : prev,
+                                    prev.empty() ? "next" : "previous");
+            }
         }
 
         TextStyle style;
