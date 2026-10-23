@@ -95,6 +95,17 @@ ArrowVortex --replay-report test.avreplay tests/test_chart.sm report.txt
 python tests/check_report.py report.txt truth.json
 ```
 
+## Releases
+
+Pushing an annotated tag `arrowreplay-vX.Y.Z` builds and tests ArrowVortex in
+the CI and publishes `ArrowReplay-vX.Y.Z-win64.zip` as a release. The first
+line of the tag message is skipped, the rest becomes the release notes:
+
+```sh
+git tag -a arrowreplay-v0.2.0 -F notes.txt
+git push origin arrowreplay-v0.2.0
+```
+
 ## Limitations
 
 - Doubles and courses are supported but not tested yet.

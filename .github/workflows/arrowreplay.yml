@@ -41,6 +41,8 @@ jobs:
   windows:
     name: Build Windows x64
     runs-on: windows-2022
+    permissions:
+      contents: write  # Publishing a release for an arrowreplay-v* tag.
     env:
       # Built packages are kept in the Actions cache, the first build (with
       # FFmpeg) takes about an hour, later ones a few minutes.
@@ -101,3 +103,20 @@ jobs:
             python replay/tests/check_report.py "$name.txt" "$name.json"
             if ($LASTEXITCODE -ne 0 -or $av.ExitCode -ne 0) { exit 1 }
           }
+      # Pushing an annotated tag like arrowreplay-v0.2.0 publishes the tested
+      # build as a release, with the tag message (after its first line) as the
+      # release notes.
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/arrowreplay-v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^arrowreplay-', ''
+          $zip = "ArrowReplay-$version-win64.zip"
+          Compress-Archive -Path package\* -DestinationPath $zip
+          git fetch --force origin "refs/tags/${tag}:refs/tags/${tag}"
+          git for-each-ref "refs/tags/$tag" --format='%(contents:body)' | Out-File -Encoding utf8 notes.md
+          Get-Content notes.md
+          gh release create $tag $zip --title "ArrowReplay $version" --notes-file notes.md
