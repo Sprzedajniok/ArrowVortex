@@ -87,6 +87,9 @@ const uint32_t kViewRangeColor = RGBAtoColor32(255, 204, 102, 60);
 
 const char* const kReplayExtension = ".avreplay";
 
+/// Newest replay format this viewer reads.
+const int kReplayVersion = 1;
+
 // ================================================================================================
 // Replay file.
 
@@ -110,14 +113,17 @@ struct ReplayFile {
     bool failed = false;
     std::string nextScreen;  ///< Screen that followed gameplay.
 
+    int version = 0;
     double rate = 1.0;
     double globalOffset = 0.0;
     int columns = 0;
     bool faPlusMode = false;
+    bool autoplay = false;
 
     /// Window sizes in seconds, as used by the engine (W0 is the FA+ window).
     double window[6] = {0.015, 0.023, 0.0445, 0.1035, 0.1365, 0.1815};
     double holdWindow = 0.3215;
+    double rollWindow = 0.3515;
     double mineWindow = 0.0715;
 
     std::string get(const char* key) const {
@@ -208,6 +214,8 @@ static bool ParseReplay(const fs::path& path, ReplayFile& out,
     out.globalOffset = Str::readDouble(out.get("GlobalOffset"), 0.0);
     out.columns = Str::readInt(out.get("Columns"), 0);
     out.faPlusMode = out.get("GameMode") == "FA+";
+    out.version = Str::readInt(out.get("ArrowReplay"), 0);
+    out.autoplay = out.get("Autoplay") == "1";
 
     for (auto& item : Str::split(out.get("Windows"), " ")) {
         auto eq = item.find('=');
@@ -220,6 +228,8 @@ static bool ParseReplay(const fs::path& path, ReplayFile& out,
             out.window[key[1] - '0'] = value;
         } else if (key == "Hold") {
             out.holdWindow = value;
+        } else if (key == "Roll") {
+            out.rollWindow = value;
         } else if (key == "Mine") {
             out.mineWindow = value;
         }
@@ -457,6 +467,8 @@ struct Stats {
     int earlyHits = 0;  ///< Early decents/way offs, rescored or not.
     int rescored = 0;   ///< Early hits that a later press improved.
     int unjudged = 0;
+    int hits = 0;         ///< Hits, judgments that are not a miss.
+    int hitsMatched = 0;  ///< Hits that line up with a recorded press.
     int numOffsets = 0;
     double meanMs = 0.0, sdMs = 0.0;
 };
@@ -474,6 +486,7 @@ struct ReplayImpl : public Replay {
     fs::path myPath;
     bool myIsOpen = false;
     std::string myStatus;
+    std::string myWarning;  ///< Signs of a different version of the chart.
 
     std::vector<NoteMark> myNotes;
     std::vector<PressMark> myPresses;
@@ -570,6 +583,12 @@ struct ReplayImpl : public Replay {
             HudError("Could not open replay: %s.", error.c_str());
             return false;
         }
+        if (file.version > kReplayVersion) {
+            HudWarning(
+                "The replay has a newer format (%d) than this ArrowVortex "
+                "reads (%d), update it if the replay looks wrong.",
+                file.version, kReplayVersion);
+        }
 
         bool useCurrent = false, remember = false;
         fs::path simfile = locateSimfile(path, file, useCurrent, remember);
@@ -601,6 +620,7 @@ struct ReplayImpl : public Replay {
 
         rebuild();
         gMenubar->update(Menubar::REPLAY);
+        if (!myWarning.empty()) HudWarning("%s", myWarning.c_str());
         HudInfo("Replay: %s, %s.", myFile.get("Title").c_str(),
                 myFile.get("Date").c_str());
         return true;
@@ -945,6 +965,7 @@ struct ReplayImpl : public Replay {
         myMines.clear();
         myIssues.clear();
         myStats = Stats();
+        myWarning.clear();
     }
 
     int toJudge(const std::string& tns, double offset) const {
@@ -973,7 +994,7 @@ struct ReplayImpl : public Replay {
 
     struct Target {
         double time = 0.0, endTime = 0.0;
-        bool lift = false, hold = false;
+        bool lift = false, hold = false, roll = false;
         int mark = -1;
         bool holdJudged = false;
     };
@@ -1044,6 +1065,7 @@ struct ReplayImpl : public Replay {
             }
             t.lift = note.type == NOTE_LIFT;
             t.hold = note.endrow > note.row;
+            t.roll = note.type == NOTE_ROLL;
             taps[note.col].push_back(t);
             firstNote = std::min(firstNote, note.time);
             lastNote = std::max(lastNote, note.endtime);
@@ -1155,6 +1177,19 @@ struct ReplayImpl : public Replay {
         }
 
         computeStats(firstNote - 0.5, lastNote + 0.5);
+
+        // Signs that the simfile is not the version that was played: hits
+        // that do not line up with any press, or all notes moved in time.
+        // On the played version the presses line up within a millisecond.
+        if (myStats.hits >= 20 && myStats.hitsMatched * 10 < myStats.hits * 9) {
+            myWarning = std::format(
+                "Only {}% of hits line up, another version of the simfile?",
+                myStats.hitsMatched * 100 / myStats.hits);
+        } else if (std::abs(bias) > 0.005) {
+            myWarning = std::format(
+                "Notes are {:.0f} ms {} than when played, sync changed?",
+                std::abs(bias) * 1000.0, bias > 0.0 ? "later" : "earlier");
+        }
     }
 
     // Matches the judgments that came from a press to a note and to that
@@ -1195,6 +1230,11 @@ struct ReplayImpl : public Replay {
                 if (err <= bestErr) {
                     bestErr = err, bestTarget = target, bestPress = i;
                 }
+            }
+
+            if (!measure) {
+                ++myStats.hits;
+                if (bestPress >= 0) ++myStats.hitsMatched;
             }
 
             // No recorded press, fall back to the time of the judgment.
@@ -1347,8 +1387,12 @@ struct ReplayImpl : public Replay {
                 ++myStats.holdsHeld;
             } else if (e.score == "LetGo") {
                 ++myStats.holdsLetGo;
-                // The foot came off at the last release inside the hold.
-                double drop = t - myFile.holdWindow * rate;
+                // The foot came off at the last release inside the hold. A
+                // dropped hold is reported a hold window after the release,
+                // a dropped roll a roll window after its last tap.
+                double window =
+                    hold->roll ? myFile.rollWindow : myFile.holdWindow;
+                double drop = t - window * rate;
                 for (auto& p : presses[e.col]) {
                     if (p.time > t) break;
                     if (!p.down && p.time >= hold->time) drop = p.time;
@@ -1724,6 +1768,7 @@ struct ReplayImpl : public Replay {
                 "{tc}";
         text += "\n{tc:777}" + myFile.get("Date") + "{tc}";
         if (myFile.failed) text += "  {tc:FF3030}FAILED{tc}";
+        if (myFile.autoplay) text += "  {tc:FF8040}autoplay{tc}";
         if (myFile.nextScreen == "ScreenGameplay") {
             text += "  {tc:FF8040}restarted{tc}";
         } else if (!myFile.nextScreen.empty() &&
@@ -1735,6 +1780,9 @@ struct ReplayImpl : public Replay {
         if (!myStatus.empty()) {
             text += "\n\n{tc:FF8040}" + myStatus + "{tc}";
         } else {
+            if (!myWarning.empty()) {
+                text += "\n\n{tc:FF8040}" + myWarning + "{tc}";
+            }
             text += "\n";
             for (int j = 0; j < NUM_JUDGES; ++j) {
                 if (myFile.faPlusMode && j == J_W5) continue;

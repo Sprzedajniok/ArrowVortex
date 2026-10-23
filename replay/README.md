@@ -75,8 +75,10 @@ checks the viewer on a real recording.
 ## Limitations
 
 - Doubles and courses are supported but not tested yet.
-- The viewer does not check that the chart matches the one the replay was
-  recorded on. A replay of a different version of a simfile is drawn wrong.
+- The viewer does not compare the chart with the `ChartHash` of the replay
+  yet. It warns when fewer than 90% of the hits line up with a press or the
+  notes are more than 5 ms off, which is what a different version of a
+  simfile looks like, but smaller edits go unnoticed.
 - When the `HOME` environment variable is set (e.g. when started from Git
   Bash), ArrowVortex keeps its settings in `$HOME/.config/arrowvortex/`. That
   is upstream ArrowVortex behavior.

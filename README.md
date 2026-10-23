@@ -38,7 +38,9 @@ misses, dropped holds and hit mines.
 Offsets are in milliseconds, negative is early. Jumps show one value per arrow.
 
 **Summary panel** (left): judgment counts, holds, hit mines, stray taps, early
-hits and how many of them were fixed, mean offset and standard deviation.
+hits and how many of them were fixed, mean offset and standard deviation. It
+warns when the open simfile does not look like the version that was played
+(hits that do not line up, or changed sync) and marks autoplay replays.
 
 **Timeline** (next to the minimap, same vertical scale): every note as a dot
 at its offset (early left, late right), window edges as thin lines, the mean of
