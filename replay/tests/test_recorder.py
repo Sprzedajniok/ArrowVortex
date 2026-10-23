@@ -56,7 +56,27 @@ GAMESTATE = {
 	GetSongOptionsObject = function() return { MusicRate = function() return 1.5 end } end,
 	GetCurrentGame = function() return { CountNotesSeparately = function() return false end } end,
 }
-PROFILEMAN = { GetProfile = function() return { GetDisplayName = function() return "Player" end } end }
+local profile_dirs = { ProfileSlot_Player1 = "/Save/LocalProfiles/00000000/",
+	ProfileSlot_Player2 = "/Save/LocalProfiles/00000001/" }
+PROFILEMAN = { GetProfile = function() return { GetDisplayName = function() return "Player" end } end,
+	GetProfileDir = function(self, slot) return profile_dirs[slot] or "" end }
+FILEMAN = { DoesFileExist = function(self, path) return written[path] ~= nil end }
+
+-- Simply Love's generic SelectMultiple OptionRow, see SL-PlayerOptions.lua.
+mods = { PlayerNumber_P1 = {}, PlayerNumber_P2 = {} }
+function CustomOptionRow(name)
+	if name ~= "GameplayExtrasB" and name ~= "GameplayExtras" then return false end
+	local row = { Name = name, SelectType = "SelectMultiple",
+		Values = { "JudgmentTilt", "ColumnCues" }, Choices = { "Judgment Tilt", "Column Cues" } }
+	row.LoadSelections = function(self, list, pn)
+		for i, v in ipairs(row.Values) do list[i] = mods[pn][v] or false end
+		return list
+	end
+	row.SaveSelections = function(self, list, pn)
+		for i, v in ipairs(row.Values) do mods[pn][v] = list[i] end
+	end
+	return row
+end
 local prefs = { TimingWindowScale = 1, TimingWindowAdd = 0.0015, GlobalOffsetSeconds = -0.008,
 	TimingWindowSecondsW1 = 0.0215, TimingWindowSecondsW2 = 0.043, TimingWindowSecondsW3 = 0.102,
 	TimingWindowSecondsW4 = 0.135, TimingWindowSecondsW5 = 0.18, TimingWindowSecondsHold = 0.32,
@@ -70,6 +90,7 @@ RageFileUtil = { CreateRageFile = function()
 	local f = {}
 	function f:Open(path, mode) self.path = path return true end
 	function f:Write(s) written[self.path] = s end
+	function f:Read() return written[self.path] or "" end
 	function f:Close() end
 	function f:destroy() end
 	return f
@@ -138,6 +159,52 @@ set_screen("ScreenEvaluationStage")
 rec:ScreenChangedMessageCommand()
 -- Nothing is recorded outside of gameplay.
 press(20, "Down", true)
+REC = rec
+'''
+
+TOGGLE_SCENARIO = r'''
+local P1_SETTINGS = "/Save/LocalProfiles/00000000/ArrowReplay.ini"
+local row = CustomOptionRow("GameplayExtrasB")
+assert(#row.Choices == 3 and row.Choices[3] == "Record Replay", "choice added")
+assert(row.Values[3] == "ArrowReplayRecord")
+assert(#CustomOptionRow("GameplayExtras").Choices == 2, "other rows are untouched")
+
+local list = row:LoadSelections({ false, false, false }, "PlayerNumber_P1")
+assert(list[3] == true, "recording is on by default")
+row:SaveSelections(list, "PlayerNumber_P1")
+assert(written[P1_SETTINGS] == nil, "nothing is written while the choice is unchanged")
+
+list[1] = true
+list[3] = false
+row:SaveSelections(list, "PlayerNumber_P1")
+assert(mods.PlayerNumber_P1.JudgmentTilt == true, "the row's own choices still work")
+assert(written[P1_SETTINGS] == "Record=0\n", tostring(written[P1_SETTINGS]))
+
+-- The choice is read back from the profile.
+written["/Save/LocalProfiles/00000001/ArrowReplay.ini"] = "Record=0\n"
+local p2 = CustomOptionRow("GameplayExtrasB"):LoadSelections({ false, false, false }, "PlayerNumber_P2")
+assert(p2[3] == false, "saved choice is loaded")
+
+-- With recording turned off, no replay is written.
+local function replays()
+	local n = 0
+	for path in pairs(written) do
+		if path:find("%.avreplay$") then n = n + 1 end
+	end
+	return n
+end
+for path in pairs(written) do
+	if path:find("%.avreplay$") then written[path] = nil end
+end
+set_screen("ScreenGameplay")
+REC:ModuleCommand()
+set_time(30)
+REC:JudgmentMessageCommand({ Player = "PlayerNumber_P1", TapNoteScore = "TapNoteScore_W1",
+	TapNoteOffset = 0, FirstTrack = 0, EarlyTapNoteScore = "TapNoteScore_None",
+	Notes = { [1] = tapnote("Tap", "W1", 0) } })
+set_screen("ScreenEvaluationStage")
+REC:ScreenChangedMessageCommand()
+assert(replays() == 0, "no replay when recording is off")
 '''
 
 
@@ -176,6 +243,8 @@ def main():
     assert sorted(lines[4:6]) == sorted(expected[4:6]), lines
     lines[4:6] = expected[4:6]
     assert lines == expected, '\n'.join(lines)
+
+    lua.execute(TOGGLE_SCENARIO)
     print('recorder test passed')
 
 

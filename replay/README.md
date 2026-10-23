@@ -29,6 +29,12 @@ registers one actor on `ScreenGameplay` that:
   rescored);
 - writes the file when the screen changes, or before the next song of a course.
 
+Simply Love has no way for modules to add options, so the "Record Replay"
+choice is added to its Gameplay Extras row (`GameplayExtrasB`) by wrapping the
+theme's global `CustomOptionRow()`. The choice is saved per profile in
+`ArrowReplay.ini` in the profile folder (guests keep it until the game is
+closed). In a theme without `CustomOptionRow()` every play is recorded.
+
 ## File format
 
 UTF-8 text. A header of `Key<TAB>Value` lines (song path, steps type,

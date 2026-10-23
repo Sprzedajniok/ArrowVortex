@@ -3,7 +3,9 @@
 -- Copy this file to "Themes/Simply Love/Modules/". While you play, it records
 -- every panel press and release plus every judgment the engine hands out, and
 -- when the song ends it writes a replay to "Save/ArrowReplays/". Open that file
--- in the ArrowVortex replay viewer (Replay > Open replay...).
+-- in the ArrowVortex replay viewer (Replay > Open replay...). Recording can be
+-- turned off per player with "Record Replay" in the Gameplay Extras row of the
+-- second page of the player options.
 --
 -- Times are written in the engine's music seconds (the clock judgments use),
 -- without the global offset. The viewer converts them to chart time with the
@@ -48,6 +50,80 @@ local function pref(name, default)
 	local ok, value = pcall(function() return PREFSMAN:GetPreference(name) end)
 	if ok and type(value) == "number" then return value end
 	return default
+end
+
+-- "Record Replay" toggle in the Gameplay Extras row on the second page of the
+-- player options, saved per profile in ArrowReplay.ini. Simply Love has no way
+-- for modules to add an OptionRow, so this adds a choice to one of its rows by
+-- wrapping its global CustomOptionRow(). Without that function (other themes)
+-- every play is recorded.
+local OPTION_ROW = "GameplayExtrasB"
+local OPTION_CHOICE = "Record Replay"
+local SETTINGS_FILE = "ArrowReplay.ini"
+
+local record_enabled = {}  -- [PlayerNumber] = false when turned off
+
+local function settings_path(player)
+	local slot = { PlayerNumber_P1 = "ProfileSlot_Player1", PlayerNumber_P2 = "ProfileSlot_Player2" }
+	local ok, dir = pcall(function() return PROFILEMAN:GetProfileDir(slot[player]) end)
+	-- Guests have no profile, their choice lasts until the game is closed.
+	if not ok or not dir or dir == "" then return nil end
+	return dir .. SETTINGS_FILE
+end
+
+local function load_enabled(player)
+	local path = settings_path(player)
+	local enabled = true
+	if not path then
+		enabled = record_enabled[player] ~= false
+	elseif FILEMAN:DoesFileExist(path) then
+		local f = RageFileUtil.CreateRageFile()
+		if f:Open(path, 1) then
+			enabled = not f:Read():find("Record=0")
+			f:Close()
+		end
+		f:destroy()
+	end
+	record_enabled[player] = enabled
+	return enabled
+end
+
+local function save_enabled(player, enabled)
+	if record_enabled[player] == enabled then return end
+	record_enabled[player] = enabled
+	local path = settings_path(player)
+	if not path then return end
+	local f = RageFileUtil.CreateRageFile()
+	if f:Open(path, 2) then
+		f:Write(enabled and "Record=1\n" or "Record=0\n")
+		f:Close()
+	end
+	f:destroy()
+end
+
+if type(CustomOptionRow) == "function" then
+	local custom_option_row = CustomOptionRow
+	CustomOptionRow = function(name)
+		local row = custom_option_row(name)
+		if name ~= OPTION_ROW or type(row) ~= "table" or type(row.Choices) ~= "table"
+			or row.SelectType ~= "SelectMultiple" then
+			return row
+		end
+		local index = #row.Choices + 1
+		row.Choices[index] = OPTION_CHOICE
+		if row.Values then row.Values[index] = "ArrowReplayRecord" end
+		local load, save = row.LoadSelections, row.SaveSelections
+		row.LoadSelections = function(self, list, player)
+			list = load(self, list, player)
+			list[index] = load_enabled(player)
+			return list
+		end
+		row.SaveSelections = function(self, list, player)
+			save(self, list, player)
+			save_enabled(player, list[index] == true)
+		end
+		return row
+	end
 end
 
 -- Maps "<side><GameButton>" (e.g. "1Left", "2Up" for doubles) to a column.
@@ -138,7 +214,7 @@ local function start_recording()
 	local rate = GAMESTATE:GetSongOptionsObject("ModsLevel_Song"):MusicRate()
 	for player in ivalues(GAMESTATE:GetHumanPlayers()) do
 		local steps = GAMESTATE:GetCurrentSteps(player)
-		if steps then
+		if steps and record_enabled[player] ~= false then
 			local colmap, two_sides, columns = build_column_map(player)
 			recordings[player] = {
 				player = player,

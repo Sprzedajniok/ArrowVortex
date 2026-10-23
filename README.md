@@ -67,6 +67,9 @@ After every song (also when you restart or quit it) a replay is saved to
 `Save/ArrowReplays/YYYYMMDD-HHMMSS_P1_Title.avreplay` in your ITGmania data
 folder: `%APPDATA%\ITGmania` on a regular Windows install, the game folder on
 a portable one. Both players are recorded, courses get one file per song.
+Each player can turn recording off with **Record Replay** in the Gameplay
+Extras row on the second page of the player options; the choice is saved
+in their profile.
 
 ## Using it
 
