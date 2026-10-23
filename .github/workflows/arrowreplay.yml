@@ -1,5 +1,8 @@
-# CI for the ArrowReplay fork. The upstream workflows (release.yml and
-# codeql.yml) need uvcat7's NuGet package feed and do not work here.
+# CI for the ArrowReplay fork. The jobs of the upstream release.yml only run
+# on uvcat7's repository: without access to its NuGet package cache the
+# Windows build compiles every vcpkg package each time and the Linux build
+# hangs while adding the feed. This workflow keeps the packages in the
+# Actions cache instead.
 
 name: ArrowReplay
 

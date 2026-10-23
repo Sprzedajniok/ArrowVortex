@@ -14,6 +14,8 @@ env:
 jobs:
   formatting:
     name: "Check formatting"
+    # Done by arrowreplay.yml on the ArrowReplay fork.
+    if: github.repository_owner == 'uvcat7'
     runs-on: windows-2022
     permissions:
       contents: read
@@ -26,6 +28,8 @@ jobs:
         shell: bash
   windows:
     name: "Build Windows x64"
+    # Done by arrowreplay.yml on the ArrowReplay fork.
+    if: github.repository_owner == 'uvcat7'
     runs-on: windows-2022
     permissions:
       contents: read
@@ -69,7 +73,7 @@ jobs:
           if-no-files-found: error
   linux:
     name: "Build Linux x64"
-    # Not built on the ArrowReplay fork.
+    # Not built on the ArrowReplay fork, see arrowreplay.yml.
     if: github.repository_owner == 'uvcat7'
     runs-on: ubuntu-latest
     permissions:
