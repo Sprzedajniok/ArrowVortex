@@ -85,6 +85,8 @@ bool ParseReplay(const fs::path& path, ReplayFile& out, std::string& error) {
     out.rate = Str::readDouble(out.get("Rate"), 1.0);
     if (out.rate <= 0.0) out.rate = 1.0;
     out.globalOffset = Str::readDouble(out.get("GlobalOffset"), 0.0);
+    out.hasSyncOffset = !out.get("SyncOffset").empty();
+    out.syncOffset = Str::readDouble(out.get("SyncOffset"), 0.0);
     out.columns = Str::readInt(out.get("Columns"), 0);
     out.faPlusMode = out.get("GameMode") == "FA+";
     out.version = Str::readInt(out.get("ArrowReplay"), 0);

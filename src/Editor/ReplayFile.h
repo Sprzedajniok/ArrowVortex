@@ -36,6 +36,10 @@ struct ReplayFile {
     int version = 0;
     double rate = 1.0;
     double globalOffset = 0.0;
+    /// The sync correction ITGmania applied to the song's pack: -0.009 for
+    /// ITG synced packs, 0 for null synced ones. Not in older replays.
+    double syncOffset = 0.0;
+    bool hasSyncOffset = false;
     int columns = 0;
     bool faPlusMode = false;
     bool autoplay = false;

@@ -62,9 +62,12 @@ END  time  failed  nextScreen         nextScreen is ScreenGameplay on a restart
 
 ## Matching
 
-Chart time is `music seconds + rate * GlobalOffset`. For every `T` record with a
-hit, the viewer looks for a press in the same column (a release for lifts) and
-a not yet judged note such that `press = note + offset * rate`, within 35 ms.
+Chart time is `music seconds + rate * GlobalOffset + SyncOffset`, where
+`SyncOffset` is the correction ITGmania applies to ITG synced packs (-0.009,
+see `Pack.ini` and the DefaultSyncOffset preference) or 0 for null synced
+ones. For every `T` record with a hit, the viewer looks for a press in the
+same column (a release for lifts) and a not yet judged note such that
+`press = note + offset * rate`, within 35 ms.
 The median difference between those presses and the recorded ones is the
 recorder's clock bias; matching then runs again with the bias removed and a
 20 ms tolerance. On real recordings the difference is under a millisecond.

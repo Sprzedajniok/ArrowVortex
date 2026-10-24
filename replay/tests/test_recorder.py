@@ -58,6 +58,7 @@ GAMESTATE = {
 }
 local profile_dirs = { ProfileSlot_Player1 = "/Save/LocalProfiles/00000000/",
 	ProfileSlot_Player2 = "/Save/LocalProfiles/00000001/" }
+SONGMAN = { GetGroup = function(self, s) return { GetSyncOffset = function() return -0.009 end } end }
 PROFILEMAN = { GetProfile = function() return { GetDisplayName = function() return "Player" end } end,
 	GetProfileDir = function(self, slot) return profile_dirs[slot] or "" end }
 FILEMAN = { DoesFileExist = function(self, path) return written[path] ~= nil end }
@@ -224,6 +225,7 @@ def main():
     fields = dict(line.split('\t', 1) for line in header.split('\n'))
     assert fields['Rate'] == '1.500000'
     assert fields['GlobalOffset'] == '-0.008000'
+    assert fields['SyncOffset'] == '-0.009000'
     assert fields['StepsType'] == 'StepsType_Dance_Single'
     assert fields['ChartHash'] == 'abc123'
     assert 'W0=0.015000' in fields['Windows'] and 'W5=0.181500' in fields['Windows']

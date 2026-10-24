@@ -75,7 +75,9 @@ struct Matcher {
 
     void run(const std::vector<ReplayChartNote>& chart, int numCols) {
         const double rate = myFile.rate;
-        const double shift = rate * myFile.globalOffset;
+        // Engine music seconds to chart time. ITGmania plays the notes of
+        // ITG synced packs 9 ms later than their simfiles say.
+        const double shift = rate * myFile.globalOffset + myFile.syncOffset;
 
         // Notes that can be judged and mines, per column.
         std::vector<std::vector<Target>> taps(numCols), mines(numCols);
@@ -214,6 +216,13 @@ struct Matcher {
             myWarning = std::format(
                 "Only {}% of hits line up, another version of the simfile?",
                 myStats.hitsMatched * 100 / myStats.hits);
+        } else if (!myFile.hasSyncOffset && bias < -0.007 && bias > -0.011) {
+            // Replays without SyncOffset do not include ITGmania's 9 ms
+            // correction of ITG synced packs, that is all this is.
+            myWarning = std::format(
+                "Notes are {:.0f} ms earlier than when played, likely "
+                "ITGmania's 9 ms ITG sync correction",
+                -bias * 1000.0);
         } else if (std::abs(bias) > 0.005) {
             myWarning = std::format(
                 "Notes are {:.0f} ms {} than when played, sync changed?",

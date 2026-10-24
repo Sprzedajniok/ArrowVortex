@@ -6,6 +6,7 @@ windows. Only constant-BPM-segment charts without warps are supported.
 
 usage: make_test_replay.py SIMFILE.sm VIRTUAL_PATH OUT.avreplay
        [--difficulty Challenge] [--rate 1.0] [--global-offset 0.0] [--seed 1]
+       [--sync-offset 0.0]
        [--truth TRUTH.json]
 
 The judgment counts it generated are printed, and written to TRUTH.json if
@@ -101,6 +102,8 @@ def main():
     ap.add_argument('--difficulty', default='Challenge')
     ap.add_argument('--rate', type=float, default=1.0)
     ap.add_argument('--global-offset', type=float, default=0.0)
+    ap.add_argument('--sync-offset', type=float, default=0.0,
+                    help="ITGmania's pack sync correction, -0.009 for ITG sync")
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--truth')
     args = ap.parse_args()
@@ -119,8 +122,8 @@ def main():
                       'end': beat_to_time(end, offset, bpms, stops)})
     notes.sort(key=lambda n: (n['time'], n['col']))
 
-    # Engine music seconds = chart time - rate * global offset.
-    to_engine = lambda c: c - rate * g
+    # Engine music seconds = chart time - rate * global offset - sync offset.
+    to_engine = lambda c: c - rate * g - args.sync_offset
     record_bias = 0.003  # recorder sees presses this much earlier than the engine
 
     events = []  # (time, line)
@@ -225,7 +228,8 @@ def main():
         ('Difficulty', 'Difficulty_' + chart[2]), ('Meter', chart[3]),
         ('Description', chart[1]), ('ChartName', ''), ('ChartHash', ''),
         ('Columns', 4), ('Rate', '%.6f' % rate),
-        ('GlobalOffset', '%.6f' % g), ('GameMode', 'ITG'),
+        ('GlobalOffset', '%.6f' % g), ('SyncOffset', '%.6f' % args.sync_offset),
+        ('GameMode', 'ITG'),
         ('Windows', ' '.join(['W%d=%.6f' % (i + 1, w + ADD) for i, w in enumerate(WINDOWS)] +
                              ['W0=%.6f' % W0, 'Hold=%.6f' % HOLD_WINDOW,
                               'Mine=%.6f' % MINE_WINDOW, 'Roll=0.351500'])),

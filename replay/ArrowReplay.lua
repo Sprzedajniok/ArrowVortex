@@ -9,7 +9,7 @@
 --
 -- Times are written in the engine's music seconds (the clock judgments use),
 -- without the global offset. The viewer converts them to chart time with the
--- GlobalOffset and Rate fields from the header.
+-- GlobalOffset, SyncOffset and Rate fields from the header.
 --
 -- Event lines (tab separated):
 --   P  time  col  down             panel pressed (1) or released (0)
@@ -164,6 +164,18 @@ local function timing_windows()
 	return table.concat(parts, " ")
 end
 
+-- The sync correction ITGmania applies to the song's pack (Pack.ini
+-- SyncOffset, or the DefaultSyncOffset preference): -0.009 for ITG synced
+-- packs, 0 for null synced ones. Empty if this ITGmania has no pack groups.
+local function sync_offset(song)
+	local ok, value = pcall(function()
+		local group = SONGMAN:GetGroup(song)
+		return group and group:GetSyncOffset()
+	end)
+	if ok and type(value) == "number" then return string.format("%.6f", value) end
+	return ""
+end
+
 local function date_string(sep_date, sep_mid, sep_time)
 	return string.format("%04d%s%02d%s%02d%s%02d%s%02d%s%02d",
 		Year(), sep_date, MonthOfYear() + 1, sep_date, DayOfMonth(), sep_mid,
@@ -195,6 +207,7 @@ local function build_header(player, song, steps, rate, columns)
 		{ "Columns", columns },
 		{ "Rate", string.format("%.6f", rate) },
 		{ "GlobalOffset", string.format("%.6f", pref("GlobalOffsetSeconds", 0)) },
+		{ "SyncOffset", sync_offset(song) },
 		{ "GameMode", (SL and SL.Global and SL.Global.GameMode) or "" },
 		{ "Windows", timing_windows() },
 		{ "Date", date_string("-", " ", ":") },

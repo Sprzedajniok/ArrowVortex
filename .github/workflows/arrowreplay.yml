@@ -96,7 +96,7 @@ jobs:
           $chart = "$pwd\replay\tests\test_chart.sm"
           $cases = @{
             "normal" = @("--seed", "1")
-            "rate" = @("--rate", "1.25", "--global-offset", "-0.008", "--seed", "2")
+            "rate" = @("--rate", "1.25", "--global-offset", "-0.008", "--sync-offset", "-0.009", "--seed", "2")
           }
           foreach ($name in $cases.Keys) {
             Write-Host "== $name"
