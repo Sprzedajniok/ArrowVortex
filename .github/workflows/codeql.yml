@@ -16,6 +16,8 @@ env:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
+    # Not run on the ArrowReplay fork, see arrowreplay.yml.
+    if: github.repository_owner == 'uvcat7'
     runs-on: windows-2022
     permissions:
       # required for all workflows
