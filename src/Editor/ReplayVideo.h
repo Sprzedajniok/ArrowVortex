@@ -65,10 +65,12 @@ class VideoPlayer {
     ~VideoPlayer();
 
     /// Starts mpv with the video, paused and without sound (the editor plays
-    /// the music). extraArgs are added to its command line, e.g.
-    /// "--vf=crop=640:480:1280:0" to show the camera only.
+    /// the music). extraArgs are added to its command line. With the video
+    /// crop script (c in mpv), crop is the part of the video shown, as
+    /// "w:h:x:y" in video pixels, or empty for all of it.
     bool open(const std::string& mpvPath, const std::string& extraArgs,
-              const fs::path& video, std::string& error);
+              const fs::path& video, const std::string& crop,
+              std::string& error);
 
     void close();
     bool isOpen() const { return myProcess != nullptr; }
@@ -76,6 +78,10 @@ class VideoPlayer {
     /// Shows the video at the given time, paused or playing at the given
     /// speed. Called every frame, it only talks to mpv when needed.
     void show(double time, bool playing, double speed);
+
+    /// Returns true and sets crop when a part of the video to show was
+    /// chosen in mpv since the last call.
+    bool takeCrop(std::string& crop);
 
    private:
     bool connect();
@@ -92,6 +98,8 @@ class VideoPlayer {
 #endif
     std::string myInput;  ///< What mpv sent, up to an unfinished line.
     bool myLoaded = false;
+    bool myCropChanged = false;
+    std::string myCrop;
     bool myPlaying = false;
     double myTime = -1e9;
     double mySpeed = 1.0;

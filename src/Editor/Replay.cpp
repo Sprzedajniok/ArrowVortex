@@ -81,6 +81,7 @@ struct ReplayImpl : public Replay {
     double myVideoOffset = 0.0;
     std::string myMpvPath = "mpv";
     std::string myMpvArgs;
+    std::string myVideoCrop;  ///< The part of the videos shown, see open.
 
     /// Finding the play in a recording, on another thread.
     std::thread myVideoJob;
@@ -104,6 +105,7 @@ struct ReplayImpl : public Replay {
         node->get("showTimeline", &myLayers.timeline);
         if (const char* mpv = node->get("mpvPath")) myMpvPath = mpv;
         if (const char* args = node->get("mpvArgs")) myMpvArgs = args;
+        if (const char* crop = node->get("videoCrop")) myVideoCrop = crop;
         myLibrary.load(*node);
     }
 
@@ -116,6 +118,7 @@ struct ReplayImpl : public Replay {
         node->addAttrib("showTimeline", myLayers.timeline);
         node->addAttrib("mpvPath", myMpvPath.c_str());
         node->addAttrib("mpvArgs", myMpvArgs.c_str());
+        node->addAttrib("videoCrop", myVideoCrop.c_str());
         myLibrary.save(*node);
     }
 
@@ -372,6 +375,12 @@ struct ReplayImpl : public Replay {
     void tick() override {
         if (myIsDragging) SeekReplayTimeline(gSystem->getMousePos().y);
         if (myVideoJob.joinable() && myVideoJobDone) finishVideoSync();
+        if (myVideo.isOpen() && myVideo.takeCrop(myVideoCrop)) {
+            HudInfo(myVideoCrop.empty()
+                        ? "The whole video is shown again."
+                        : "The chosen part of the video is shown, also for the "
+                          "next videos.");
+        }
         if (myVideo.isOpen()) {
             // The editor plays at the replay rate, the recording at 1x.
             const double rate = myFile.rate;
@@ -447,7 +456,8 @@ struct ReplayImpl : public Replay {
 
     void startVideo() {
         std::string error;
-        if (!myVideo.open(myMpvPath, myMpvArgs, myVideoPath, error)) {
+        if (!myVideo.open(myMpvPath, myMpvArgs, myVideoPath, myVideoCrop,
+                          error)) {
             HudError(
                 "Could not start mpv (%s), set mpvPath in the replay settings.",
                 error.c_str());

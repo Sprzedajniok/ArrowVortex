@@ -103,6 +103,14 @@ still found. mpv is controlled over its JSON IPC (`--input-ipc-server`): it
 seeks to `offset + cursor time / rate` while paused and plays at
 `music speed / rate`, seeking again when the cursor jumps.
 
+Showing a part of the video is `bin/assets/video crop.lua`, loaded into mpv
+with `--script`: it maps the dragged rectangle from the window to video
+pixels (within the current crop), applies it as a labeled `crop` video filter
+and reports it with `script-message arrowvortex-crop w:h:x:y`, which IPC
+clients receive as a `client-message` event. ArrowVortex saves it and passes
+it back with `--script-opts-append=arrowvortex-crop=...`; the script only
+applies it when it fits the video.
+
 ## Tests
 
 ```sh

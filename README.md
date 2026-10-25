@@ -128,11 +128,15 @@ cursor. It needs [mpv](https://mpv.io/).
    (`.avvideo`), so the video opens again with the replay.
 3. `Shift+F7` / `Shift+F8` show the video 10 ms earlier / later, for the delay
    between OBS's picture and sound.
+4. To show only a part of the video, e.g. the camera or the pad pressure
+   values, press `c` in the mpv window and drag over it; do it again to zoom
+   in further. `Shift+C` shows the whole video again. The part is kept for the
+   next videos, which suits a scene layout that stays the same.
 
-Settings, in the `replay` section of `settings/settings.txt`:
-`mpvPath` (default `mpv`, e.g. `C:/mpv/mpv.exe` if it is not on the `PATH`)
-and `mpvArgs`, extra mpv options such as `--vf=crop=640:480:1280:0` to show
-only the camera, or `--ontop`.
+Settings, in the `replay` section of `settings/settings.txt` (written when
+ArrowVortex closes): `mpvPath` (default `mpv`, e.g. `C:/mpv/mpv.exe` if it is
+not on the `PATH`), `mpvArgs`, extra mpv options such as `--ontop`, and
+`videoCrop`, the part of the video shown (`width:height:x:y`).
 
 ## How it works
 

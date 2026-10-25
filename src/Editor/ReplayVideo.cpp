@@ -296,7 +296,8 @@ RecordingSync SyncVideo(const VideoSyncInput& input, const fs::path& recording,
 VideoPlayer::~VideoPlayer() { close(); }
 
 bool VideoPlayer::open(const std::string& mpvPath, const std::string& extraArgs,
-                       const fs::path& video, std::string& error) {
+                       const fs::path& video, const std::string& crop,
+                       std::string& error) {
     close();
 #ifdef _WIN32
     myPipeName =
@@ -311,6 +312,15 @@ bool VideoPlayer::open(const std::string& mpvPath, const std::string& extraArgs,
                                      "--force-window=yes",
                                      "--no-audio",
                                      "--title=ArrowVortex video"};
+    // The script is in the assets next to the editor, which runs in its folder.
+    std::error_code code;
+    fs::path script = fs::absolute("assets/video crop.lua", code);
+    if (fs::exists(script, code)) {
+        args.push_back("--script=" + pathToUtf8(script));
+        if (!crop.empty()) {
+            args.push_back("--script-opts-append=arrowvortex-crop=" + crop);
+        }
+    }
     for (auto& arg : Str::split(extraArgs, " ", true, true)) {
         args.push_back(arg);
     }
@@ -435,6 +445,15 @@ void VideoPlayer::drain() {
     for (size_t end; (end = myInput.find('\n', begin)) != std::string::npos;
          begin = end + 1) {
         std::string_view line(myInput.data() + begin, end - begin);
+        // The script reports a new crop as "arrowvortex-crop" and "w:h:x:y".
+        const std::string_view kCropMessage =
+            R"("event":"client-message","args":["arrowvortex-crop",")";
+        size_t crop = line.find(kCropMessage);
+        if (crop != std::string_view::npos) {
+            std::string_view value = line.substr(crop + kCropMessage.size());
+            myCrop = value.substr(0, value.find('"'));
+            myCropChanged = true;
+        }
         if (!myLoaded && line.find(R"("name":"duration","data":)") !=
                              std::string_view::npos) {
             // Show the current time again, the commands before were lost.
@@ -444,6 +463,13 @@ void VideoPlayer::drain() {
         }
     }
     myInput.erase(0, begin);
+}
+
+bool VideoPlayer::takeCrop(std::string& crop) {
+    if (!myCropChanged) return false;
+    myCropChanged = false;
+    crop = myCrop;
+    return true;
 }
 
 void VideoPlayer::show(double time, bool playing, double speed) {
