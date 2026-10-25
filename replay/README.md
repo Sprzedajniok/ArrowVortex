@@ -105,7 +105,8 @@ seeks to `offset + cursor time / rate` while paused and plays at
 
 Showing a part of the video is `bin/assets/video crop.lua`, loaded into mpv
 with `--script`: it maps the dragged rectangle from the window to video
-pixels (within the current crop), applies it as a labeled `crop` video filter
+pixels (within the current crop), with `window-dragging` off meanwhile since
+mpv 0.38+ would start moving the window and cancel the button, applies it as a labeled `crop` video filter
 and reports it with `script-message arrowvortex-crop w:h:x:y`, which IPC
 clients receive as a `client-message` event. ArrowVortex saves it and passes
 it back with `--script-opts-append=arrowvortex-crop=...`; the script only

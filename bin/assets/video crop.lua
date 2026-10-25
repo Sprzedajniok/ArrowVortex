@@ -1,7 +1,8 @@
 -- Loaded into mpv by ArrowVortex when it shows the recording of a replayed
--- play. Press c and drag over the part of the video to show, e.g. the camera
--- or the pad pressure values, and again to zoom in further. Shift+C shows
--- the whole video. ArrowVortex keeps the crop for the next videos.
+-- play. Press c and drag over the part of the video to show (or click two
+-- of its corners), e.g. the camera or the pad pressure values, and again to
+-- zoom in further. Shift+C shows the whole video. ArrowVortex keeps the crop
+-- for the next videos.
 
 local mp = require 'mp'
 
@@ -63,45 +64,66 @@ local function draw()
     overlay:update()
 end
 
+-- Window dragging, which mpv starts when the mouse moves with the left
+-- button down, also for script key bindings, and cancels the button then.
+local window_dragging = nil
+
 local function stop()
     selecting, corner = false, nil
     overlay:remove()
     mp.unobserve_property(draw)
     mp.remove_key_binding('arrowvortex-drag')
+    mp.remove_key_binding('arrowvortex-double')
     mp.remove_key_binding('arrowvortex-cancel')
+    if window_dragging ~= nil then
+        mp.set_property_bool('window-dragging', window_dragging)
+        window_dragging = nil
+    end
 end
 
+local function finish(mouse)
+    local x0, y0 = to_video(corner.x, corner.y)
+    local x1, y1 = to_video(mouse.x, mouse.y)
+    stop()
+    if not x0 or not x1 then return end
+    -- Even sizes, which every pixel format can be cropped to.
+    local c = {x = math.floor(math.min(x0, x1) / 2) * 2, y = math.floor(math.min(y0, y1) / 2) * 2}
+    c.w = math.floor((math.max(x0, x1) - c.x) / 2) * 2
+    c.h = math.floor((math.max(y0, y1) - c.y) / 2) * 2
+    if c.w < 16 or c.h < 16 then
+        mp.osd_message('The part is too small, press c to try again.')
+        return
+    end
+    apply(c)
+    report()
+end
+
+-- A drag, or two clicks on opposite corners.
 local function drag(event)
     local mouse = mp.get_property_native('mouse-pos')
-    if not mouse then return end
-    if event.event == 'down' then
+    if not mouse or event.canceled then return end
+    if event.event == 'down' or event.event == 'press' then
+        if corner then return finish(mouse) end
         corner = {x = mouse.x, y = mouse.y}
         draw()
-    elseif event.event == 'up' and corner then
-        local x0, y0 = to_video(corner.x, corner.y)
-        local x1, y1 = to_video(mouse.x, mouse.y)
-        stop()
-        if not x0 or not x1 then return end
-        -- Even sizes, which every pixel format can be cropped to.
-        local c = {x = math.floor(math.min(x0, x1) / 2) * 2, y = math.floor(math.min(y0, y1) / 2) * 2}
-        c.w = math.floor((math.max(x0, x1) - c.x) / 2) * 2
-        c.h = math.floor((math.max(y0, y1) - c.y) / 2) * 2
-        if c.w < 16 or c.h < 16 then
-            mp.osd_message('The part is too small, press c to try again.')
-            return
-        end
-        apply(c)
-        report()
+    elseif event.event == 'up' and corner and
+        (math.abs(mouse.x - corner.x) > 8 or math.abs(mouse.y - corner.y) > 8) then
+        finish(mouse)
     end
 end
 
 local function select()
     if selecting then return stop() end
     selecting = true
+    window_dragging = mp.get_property_bool('window-dragging')
+    mp.set_property_bool('window-dragging', false)
     mp.add_forced_key_binding('MBTN_LEFT', 'arrowvortex-drag', drag, {complex = true})
+    -- A second click soon after the first is a double click, which replaces
+    -- it (and would toggle fullscreen).
+    mp.add_forced_key_binding('MBTN_LEFT_DBL', 'arrowvortex-double', drag, {complex = true})
     mp.add_forced_key_binding('ESC', 'arrowvortex-cancel', stop)
     mp.observe_property('mouse-pos', 'native', draw)
-    mp.osd_message('Drag over the part of the video to show (Esc cancels).', 3)
+    mp.osd_message('Drag over the part of the video to show, or click two of its corners (Esc cancels).', 4)
 end
 
 local function reset()

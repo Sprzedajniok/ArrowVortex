@@ -129,8 +129,8 @@ cursor. It needs [mpv](https://mpv.io/).
 3. `Shift+F7` / `Shift+F8` show the video 10 ms earlier / later, for the delay
    between OBS's picture and sound.
 4. To show only a part of the video, e.g. the camera or the pad pressure
-   values, press `c` in the mpv window and drag over it; do it again to zoom
-   in further. `Shift+C` shows the whole video again. The part is kept for the
+   values, press `c` in the mpv window and drag over it (or click two of its
+   corners); do it again to zoom in further. `Shift+C` shows the whole video again. The part is kept for the
    next videos, which suits a scene layout that stays the same.
 
 Settings, in the `replay` section of `settings/settings.txt` (written when
