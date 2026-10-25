@@ -755,9 +755,10 @@ std::vector<std::string> Str::split(const std::string& s, const char* lim,
                                     bool trim, bool skip) {
     std::vector<std::string> out;
     auto limlen = strlen(lim);
-    auto slen = s.length() - limlen;
     size_t start = 0;
-    for (size_t i = 0; i <= slen;) {
+    // Not i <= s.length() - limlen, which wraps around for a string shorter
+    // than the delimiter, e.g. an empty one.
+    for (size_t i = 0; i + limlen <= s.length();) {
         if (memcmp(s.data() + i, lim, limlen) == 0) {
             std::string sub = Str::substr(s, start, i - start);
             if (trim) Str::trim(sub);
