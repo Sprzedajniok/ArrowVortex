@@ -15,6 +15,7 @@ extern "C" {
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_process.h>
+#include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_timer.h>
 
 #ifdef _WIN32
@@ -319,7 +320,18 @@ bool VideoPlayer::open(const std::string& mpvPath, const std::string& extraArgs,
     for (auto& arg : args) argv.push_back(arg.c_str());
     argv.push_back(nullptr);
 
-    myProcess = SDL_CreateProcess(argv.data(), false);
+    // Without a console the editor has no standard I/O to pass on, which
+    // fails on Windows, and mpv's output is not needed.
+    SDL_PropertiesID props = SDL_CreateProperties();
+    SDL_SetPointerProperty(props, SDL_PROP_PROCESS_CREATE_ARGS_POINTER,
+                           argv.data());
+    for (const char* stream : {SDL_PROP_PROCESS_CREATE_STDIN_NUMBER,
+                               SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER,
+                               SDL_PROP_PROCESS_CREATE_STDERR_NUMBER}) {
+        SDL_SetNumberProperty(props, stream, SDL_PROCESS_STDIO_NULL);
+    }
+    myProcess = SDL_CreateProcessWithProperties(props);
+    SDL_DestroyProperties(props);
     if (!myProcess) {
         error = SDL_GetError();
         return false;
