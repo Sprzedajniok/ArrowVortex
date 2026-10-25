@@ -112,6 +112,28 @@ replays of them open right away.
   labels, summary panel, timeline.
 - Shortcuts can be changed in `settings/shortcuts.txt`.
 
+### Video of the play (experimental)
+
+If you record your sessions with OBS, ArrowVortex can show the recording (the
+camera, the pads, FSR values on screen) next to the replay, following the
+cursor. It needs [mpv](https://mpv.io/).
+
+1. Open the replay, then **Replay > Open video of the play...** and pick the
+   recording. It can be the whole evening: the play is found from the song in
+   the recording's audio, so the preview looping in the song select menu and
+   restarts don't get in the way. With OBS's default file names
+   (`2026-10-22 19-58-30.mkv`) the replay date says where to look first.
+2. mpv opens paused at the cursor and plays along with the music. The
+   recording and where the song starts in it are saved next to the replay
+   (`.avvideo`), so the video opens again with the replay.
+3. `Shift+F7` / `Shift+F8` show the video 10 ms earlier / later, for the delay
+   between OBS's picture and sound.
+
+Settings, in the `replay` section of `settings/settings.txt`:
+`mpvPath` (default `mpv`, e.g. `C:/mpv/mpv.exe` if it is not on the `PATH`)
+and `mpvArgs`, extra mpv options such as `--vf=crop=640:480:1280:0` to show
+only the camera, or `--ontop`.
+
 ## How it works
 
 The module listens to ITGmania's judgment messages, which carry the exact

@@ -27,6 +27,13 @@ struct Replay : public InputHandler {
     static bool writeReport(const fs::path& replay, const fs::path& simfile,
                             const fs::path& out);
 
+    /// Finds the song of a replay in a recording of the play, e.g. by OBS,
+    /// and writes where the song starts in the recording to a text file.
+    /// Used by "ArrowVortex --video-sync REPLAY SIMFILE VIDEO OUT" and the CI
+    /// tests. Returns false (and writes the error) if it was not found.
+    static bool writeVideoSync(const fs::path& replay, const fs::path& simfile,
+                               const fs::path& video, const fs::path& out);
+
     virtual void saveSettings(XmrNode& settings) = 0;
 
     /// Called by the editor when changes were made to the simfile.
@@ -41,6 +48,14 @@ struct Replay : public InputHandler {
 
     virtual void closeReplay() = 0;
     virtual bool isOpen() const = 0;
+
+    /// Prompts the user to select a recording of the play and shows it in mpv,
+    /// following the cursor. Where the play is in the recording is found from
+    /// the song audio and kept next to the replay.
+    virtual void openVideo() = 0;
+
+    /// Shows the video later (positive) or earlier, in seconds.
+    virtual void nudgeVideo(double seconds) = 0;
 
     /// Moves the cursor to the next or previous miss, stray press, decent,
     /// way off, dropped hold or hit mine.

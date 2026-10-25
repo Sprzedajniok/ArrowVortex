@@ -16,12 +16,16 @@ recorder, the replay file format and the tests.
   a BPM change and a stop) for the viewer test.
 - `tests/check_report.py`: compares the viewer's replay report with the
   judgments `make_test_replay.py` generated.
+- `tests/make_test_recording.py`: writes a synthetic song and recordings of
+  an evening with a play of it, for the video sync test.
+- `tests/check_video_sync.py`: checks where the viewer found the play.
 - `screenshots/`: images used by the main README.
 - The viewer itself is in `src/Editor/`: `Replay.cpp` (opening replays and
   keeping them on their chart), `ReplayFile.cpp` (reading the file),
   `ReplayLocate.cpp` (finding the simfile), `ReplayMatch.cpp` (matching the
-  replay to the chart) and `ReplayDraw.cpp` (notefield marks, summary panel
-  and timeline).
+  replay to the chart), `ReplayDraw.cpp` (notefield marks, summary panel
+  and timeline), `ReplaySync.cpp` (finding a song in a recording) and
+  `ReplayVideo.cpp` (reading recordings with FFmpeg, mpv).
 
 ## Recorder
 
@@ -77,6 +81,28 @@ reported. Hold results go to the latest hold that started before them, and a
 dropped hold is marked at the last release inside it. Presses that nothing
 claims are stray taps, or hold re-presses when they fall inside a hold or roll.
 
+## Video sync
+
+The song and the recording's audio are turned into onset envelopes: the rise
+in log energy of a high-passed signal, every 5 ms of recording time (the song
+is read at the replay rate, so a resampled or time stretched song lines up).
+Up to 8 parts of 8 seconds are taken from the song, up to where the replay
+ended and not from the preview, which also loops in the song select menu.
+Each part is matched by normalized cross-correlation, first at 20 ms, then at
+5 ms, and matches of different parts at the same offset (within 30 ms) are one
+attempt. The attempt more than half of the parts agree on wins; when several
+do (the same song played twice), the best one within 20 seconds of the replay
+date in the recording wins, the date minus the time in the recording's file
+name. With that date only 3 minutes around it are read, and the whole
+recording if the play is not there (e.g. OBS on a computer with another
+clock).
+
+The offset is accurate to a few milliseconds, well under a video frame. A
+time stretched song (rates that keep the pitch) matches more weakly but is
+still found. mpv is controlled over its JSON IPC (`--input-ipc-server`): it
+seeks to `offset + cursor time / rate` while paused and plays at
+`music speed / rate`, seeking again when the cursor jumps.
+
 ## Tests
 
 ```sh
@@ -96,6 +122,15 @@ does after every Windows build:
 python tests/make_test_replay.py tests/test_chart.sm "/Songs/Tests/Test/test_chart.sm" test.avreplay --truth truth.json
 ArrowVortex --replay-report test.avreplay tests/test_chart.sm report.txt
 python tests/check_report.py report.txt truth.json
+```
+
+And the video sync, on a generated evening of recording:
+
+```sh
+python tests/make_test_replay.py tests/test_chart.sm "/Songs/Tests/Test/test_chart.sm" video.avreplay --rate 1.25 --seed 2
+python tests/make_test_recording.py tests/test_chart.sm rec --rate 1.25 --truth rec/truth.json
+ArrowVortex --video-sync video.avreplay rec/song/test_chart.sm "rec/2026-10-22 19-58-30.wav" sync.txt
+python tests/check_video_sync.py sync.txt rec/truth.json
 ```
 
 ## Releases

@@ -619,21 +619,27 @@ static void ApplicationEnd() {
 }
 
 SDL_AppResult SDL_AppInit(void** appstate, int argc, char** argv) {
-    // "--replay-report REPLAY SIMFILE OUT" writes a replay summary without
-    // opening the editor, see Replay::writeReport. The paths are made absolute
-    // before the working directory changes.
-    std::vector<fs::path> report;
-    if (argc == 5 && std::string(argv[1]) == "--replay-report") {
-        for (int i = 2; i < 5; ++i) {
-            report.push_back(fs::absolute(utf8ToPath(argv[i])));
+    // "--replay-report REPLAY SIMFILE OUT" writes a replay summary and
+    // "--video-sync REPLAY SIMFILE VIDEO OUT" where the play is in a recording
+    // without opening the editor, see Replay::writeReport and writeVideoSync.
+    // The paths are made absolute before the working directory changes.
+    std::string mode = argc > 1 ? argv[1] : "";
+    std::vector<fs::path> paths;
+    if ((argc == 5 && mode == "--replay-report") ||
+        (argc == 6 && mode == "--video-sync")) {
+        for (int i = 2; i < argc; ++i) {
+            paths.push_back(fs::absolute(utf8ToPath(argv[i])));
         }
     }
 #ifdef WIN32
     std::wstring exe_folder = Widen(SDL_GetBasePath());
     SetCurrentDirectoryW(exe_folder.c_str());
 #endif
-    if (!report.empty()) {
-        bool success = Replay::writeReport(report[0], report[1], report[2]);
+    if (!paths.empty()) {
+        bool success =
+            mode == "--video-sync"
+                ? Replay::writeVideoSync(paths[0], paths[1], paths[2], paths[3])
+                : Replay::writeReport(paths[0], paths[1], paths[2]);
         return success ? SDL_APP_SUCCESS : SDL_APP_FAILURE;
     }
     ApplicationStart();

@@ -397,6 +397,9 @@ static ActionEntry actionMap[] = {
     E(REPLAY_TOGGLE_LABELS),
     E(REPLAY_TOGGLE_PANEL),
     E(REPLAY_TOGGLE_TIMELINE),
+    E(REPLAY_OPEN_VIDEO),
+    E(REPLAY_VIDEO_EARLIER),
+    E(REPLAY_VIDEO_LATER),
 
 #undef E
 

@@ -872,6 +872,18 @@ bool Action::perform(Type action) {
             gReplay->toggleShowTimeline();
             break;
         }
+        case REPLAY_OPEN_VIDEO: {
+            gReplay->openVideo();
+            break;
+        }
+        case REPLAY_VIDEO_EARLIER: {
+            gReplay->nudgeVideo(-0.01);
+            break;
+        }
+        case REPLAY_VIDEO_LATER: {
+            gReplay->nudgeVideo(0.01);
+            break;
+        }
 
         default: {
             handled = false;

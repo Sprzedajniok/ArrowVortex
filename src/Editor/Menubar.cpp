@@ -442,6 +442,10 @@ struct MenuBarImpl : public Menubar {
         add(hReplay, REPLAY_TOGGLE_LABELS, "Show timing labels");
         add(hReplay, REPLAY_TOGGLE_PANEL, "Show summary panel");
         add(hReplay, REPLAY_TOGGLE_TIMELINE, "Show timeline");
+        sep(hReplay);
+        add(hReplay, REPLAY_OPEN_VIDEO, "Open video of the play...");
+        add(hReplay, REPLAY_VIDEO_EARLIER, "Video earlier (10 ms)");
+        add(hReplay, REPLAY_VIDEO_LATER, "Video later (10 ms)");
 
         // Help menu.
         Item* hHelp = newMenu();
@@ -702,6 +706,9 @@ struct MenuBarImpl : public Menubar {
             menu->setEnabled(REPLAY_CLOSE, open);
             menu->setEnabled(REPLAY_PREVIOUS_ISSUE, open);
             menu->setEnabled(REPLAY_NEXT_ISSUE, open);
+            menu->setEnabled(REPLAY_OPEN_VIDEO, open);
+            menu->setEnabled(REPLAY_VIDEO_EARLIER, open);
+            menu->setEnabled(REPLAY_VIDEO_LATER, open);
             menu->setChecked(REPLAY_TOGGLE_PRESSES, gReplay->hasShowPresses());
             menu->setChecked(REPLAY_TOGGLE_HELD_PANELS,
                              gReplay->hasShowHeldPanels());

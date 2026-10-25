@@ -16,6 +16,10 @@
 #include <Editor/ReplayFile.h>
 #include <Editor/ReplayLocate.h>
 #include <Editor/ReplayMatch.h>
+#include <Editor/ReplayVideo.h>
+#include <Editor/Sound.h>
+
+#include <System/File.h>
 
 namespace Vortex {
 
@@ -109,6 +113,36 @@ std::string FormatReport(const ReplayFile& file, const Chart& chart,
     return out;
 }
 
+std::string MakeVideoSync(const fs::path& replay, const fs::path& simfile,
+                          const fs::path& video, bool& success) {
+    success = false;
+    ReplayFile file;
+    std::string error;
+    if (!ParseReplay(replay, file, error)) {
+        return "Error\tcould not open the replay: " + error + "\n";
+    }
+    Simfile sim;
+    if (!LoadSimfile(sim, simfile)) {
+        return "Error\tcould not open the simfile\n";
+    }
+    fs::path music = utf8ToPath(sim.dir);
+    music.append(stringToUtf8(sim.music));
+    Sound song;
+    std::string title, artist;
+    if (sim.music.empty() || !song.load(music, false, title, artist) ||
+        song.getFrequency() <= 0) {
+        return "Error\tcould not load the music\n";
+    }
+
+    VideoSyncInput input = PrepareVideoSync(file, song, sim.previewStart,
+                                            sim.previewLength, video);
+    RecordingSync sync = SyncVideo(input, video);
+    if (!sync.found) return "Error\t" + sync.error + "\n";
+    success = true;
+    return std::format("Offset\t{:.6f}\nVotes\t{}\nParts\t{}\nScore\t{:.3f}\n",
+                       sync.offset, sync.votes, sync.parts, sync.score);
+}
+
 std::string MakeReport(const fs::path& replay, const fs::path& simfile,
                        bool& success) {
     success = false;
@@ -157,6 +191,19 @@ bool Replay::writeReport(const fs::path& replay, const fs::path& simfile,
 
     std::ofstream file(out, std::ios::binary);
     file << report;
+    return success && file.good();
+}
+
+bool Replay::writeVideoSync(const fs::path& replay, const fs::path& simfile,
+                            const fs::path& video, const fs::path& out) {
+    const bool createStyles = gStyle == nullptr;
+    if (createStyles) StyleMan::create();
+    bool success = false;
+    std::string sync = MakeVideoSync(replay, simfile, video, success);
+    if (createStyles) StyleMan::destroy();
+
+    std::ofstream file(out, std::ios::binary);
+    file << sync;
     return success && file.good();
 }
 

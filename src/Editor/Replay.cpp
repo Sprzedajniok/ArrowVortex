@@ -1,8 +1,12 @@
 #include <Editor/Replay.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <format>
+#include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <Core/StringUtils.h>
@@ -29,6 +33,7 @@
 #include <Editor/ReplayFile.h>
 #include <Editor/ReplayLocate.h>
 #include <Editor/ReplayMatch.h>
+#include <Editor/ReplayVideo.h>
 #include <Editor/TextOverlay.h>
 #include <Editor/View.h>
 
@@ -38,12 +43,17 @@ namespace {
 
 const char* const kReplayExtension = ".avreplay";
 
+/// Kept next to a replay: the recording of the play and where the song
+/// starts in it.
+const char* const kVideoLinkExtension = ".avvideo";
+
 // ================================================================================================
 // ReplayImpl.
 //
 // Opening and closing replays and keeping them on the chart they were played
 // on. Reading the file is in ReplayFile, finding the simfile in ReplayLocate,
-// matching the replay to the chart in ReplayMatch and drawing in ReplayDraw.
+// matching the replay to the chart in ReplayMatch, drawing in ReplayDraw and
+// finding the play in a recording and showing it in ReplayVideo.
 
 struct ReplayImpl : public Replay {
     ReplayFile myFile;
@@ -64,6 +74,23 @@ struct ReplayImpl : public Replay {
     int mySpeedBefore = 100;
     int myReplaySpeed = 100;
 
+    /// The recording of the play shown in mpv, and the recording seconds at
+    /// music time 0.
+    VideoPlayer myVideo;
+    fs::path myVideoPath;
+    double myVideoOffset = 0.0;
+    std::string myMpvPath = "mpv";
+    std::string myMpvArgs;
+
+    /// Finding the play in a recording, on another thread.
+    std::thread myVideoJob;
+    std::atomic<bool> myVideoJobDone = false;
+    std::atomic<bool> myVideoCancel = false;
+    fs::path myVideoJobPath;
+    RecordingSync myVideoJobResult;
+
+    ~ReplayImpl() { stopVideo(); }
+
     // ================================================================================================
     // ReplayImpl :: settings.
 
@@ -75,6 +102,8 @@ struct ReplayImpl : public Replay {
         node->get("showLabels", &myLayers.labels);
         node->get("showPanel", &myLayers.panel);
         node->get("showTimeline", &myLayers.timeline);
+        if (const char* mpv = node->get("mpvPath")) myMpvPath = mpv;
+        if (const char* args = node->get("mpvArgs")) myMpvArgs = args;
         myLibrary.load(*node);
     }
 
@@ -85,6 +114,8 @@ struct ReplayImpl : public Replay {
         node->addAttrib("showLabels", myLayers.labels);
         node->addAttrib("showPanel", myLayers.panel);
         node->addAttrib("showTimeline", myLayers.timeline);
+        node->addAttrib("mpvPath", myMpvPath.c_str());
+        node->addAttrib("mpvArgs", myMpvArgs.c_str());
         myLibrary.save(*node);
     }
 
@@ -131,6 +162,7 @@ struct ReplayImpl : public Replay {
         }
 
         if (!myIsOpen) mySpeedBefore = gMusic->getSpeed();
+        stopVideo();
         myFile = std::move(file);
         myPath = path;
         myIsOpen = true;
@@ -152,6 +184,7 @@ struct ReplayImpl : public Replay {
         }
         HudInfo("Replay: %s, %s.", myFile.get("Title").c_str(),
                 myFile.get("Date").c_str());
+        if (loadVideoLink()) startVideo();
         return true;
     }
 
@@ -165,6 +198,7 @@ struct ReplayImpl : public Replay {
         if (myIsOpen && gMusic->getSpeed() == myReplaySpeed) {
             gMusic->setSpeed(mySpeedBefore);
         }
+        stopVideo();
         myIsOpen = false;
         myBoundSimfile.clear();
         myBoundChart = nullptr;
@@ -337,6 +371,145 @@ struct ReplayImpl : public Replay {
 
     void tick() override {
         if (myIsDragging) SeekReplayTimeline(gSystem->getMousePos().y);
+        if (myVideoJob.joinable() && myVideoJobDone) finishVideoSync();
+        if (myVideo.isOpen()) {
+            // The editor plays at the replay rate, the recording at 1x.
+            const double rate = myFile.rate;
+            myVideo.show(myVideoOffset + gView->getCursorTime() / rate,
+                         !gMusic->isPaused(),
+                         gMusic->getSpeed() / (100.0 * rate));
+        }
+    }
+
+    // ================================================================================================
+    // ReplayImpl :: video.
+
+    void openVideo() override {
+        if (!myIsOpen) {
+            HudNote("Open a replay first.");
+            return;
+        }
+        if (myVideoJob.joinable()) {
+            HudNote("Still looking for the play in the recording.");
+            return;
+        }
+        if (!gMusic->getSamples().isCompleted() ||
+            gMusic->getSamples().getNumFrames() == 0) {
+            HudNote("Wait for the music to finish loading.");
+            return;
+        }
+        static SDL_DialogFileFilter filters[] = {
+            {"Recordings (*.mkv, *.mp4, *.mov, *.flv, *.ts, *.webm)",
+             "mkv;mp4;mov;flv;ts;webm"},
+            {"All files", "*"},
+        };
+        fs::path path = gSystem->openFileDlg("Open the recording of the play",
+                                             filters, 2, myVideoPath);
+        if (path.empty()) return;
+        if (path == myVideoPath) {
+            // Keeps the offset, including nudges.
+            startVideo();
+            return;
+        }
+
+        const Simfile* sim = gSimfile->get();
+        VideoSyncInput input =
+            PrepareVideoSync(myFile, gMusic->getSamples(), sim->previewStart,
+                             sim->previewLength, path);
+        myVideoJobPath = path;
+        myVideoJobDone = false;
+        myVideoCancel = false;
+        myVideoJob = std::thread([this, input = std::move(input), path] {
+            myVideoJobResult = SyncVideo(input, path, &myVideoCancel);
+            myVideoJobDone = true;
+        });
+        HudInfo("Looking for the play in the recording...");
+    }
+
+    void finishVideoSync() {
+        myVideoJob.join();
+        const RecordingSync& sync = myVideoJobResult;
+        if (!sync.found) {
+            HudError("Could not find the play in the recording: %s.",
+                     sync.error.c_str());
+            return;
+        }
+        myVideoPath = myVideoJobPath;
+        myVideoOffset = sync.offset;
+        saveVideoLink();
+        HudInfo(
+            "The song starts at %s in the recording (%d of %d parts of "
+            "the song match, %.0f%%).",
+            Str::formatTime(sync.offset).c_str(), sync.votes, sync.parts,
+            sync.score * 100.0);
+        startVideo();
+    }
+
+    void startVideo() {
+        std::string error;
+        if (!myVideo.open(myMpvPath, myMpvArgs, myVideoPath, error)) {
+            HudError(
+                "Could not start mpv (%s), set mpvPath in the replay settings.",
+                error.c_str());
+        }
+    }
+
+    void stopVideo() {
+        if (myVideoJob.joinable()) {
+            myVideoCancel = true;
+            myVideoJob.join();
+        }
+        myVideo.close();
+        myVideoPath.clear();
+        myVideoOffset = 0.0;
+    }
+
+    void nudgeVideo(double seconds) override {
+        if (myVideoPath.empty()) {
+            HudNote("Open the recording of the play first.");
+            return;
+        }
+        myVideoOffset -= seconds;
+        saveVideoLink();
+        HudInfo("Video %s by %.0f ms.", seconds > 0.0 ? "later" : "earlier",
+                std::abs(seconds) * 1000.0);
+    }
+
+    fs::path videoLinkPath() const {
+        fs::path path = myPath;
+        return path.replace_extension(kVideoLinkExtension);
+    }
+
+    void saveVideoLink() {
+        std::ofstream out(videoLinkPath(), std::ios::binary);
+        out << "Video\t" << pathToUtf8(myVideoPath) << "\n";
+        out << std::format("Offset\t{:.6f}\n", myVideoOffset);
+        if (!out.good()) HudWarning("Could not save the video offset.");
+    }
+
+    bool loadVideoLink() {
+        std::ifstream in(videoLinkPath(), std::ios::binary);
+        std::string line, video;
+        double offset = 0.0;
+        bool hasOffset = false;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.starts_with("Video\t")) video = line.substr(6);
+            if (line.starts_with("Offset\t")) {
+                hasOffset = Str::read(line.substr(7), &offset);
+            }
+        }
+        if (video.empty() || !hasOffset) return false;
+        fs::path path = utf8ToPath(video);
+        std::error_code error;
+        if (!fs::exists(path, error)) {
+            HudNote("The recording of this replay was not found: %s.",
+                    video.c_str());
+            return false;
+        }
+        myVideoPath = path;
+        myVideoOffset = offset;
+        return true;
     }
 
     // ================================================================================================

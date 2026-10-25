@@ -108,6 +108,32 @@ jobs:
             python replay/tests/check_report.py "$name.txt" "$name.json"
             if ($LASTEXITCODE -ne 0 -or $av.ExitCode -ne 0) { exit 1 }
           }
+      # Runs the built ArrowVortex on generated recordings of a play of the
+      # test chart, with the preview looping in the menu, a restart and a
+      # second play, and checks that it finds where the play starts.
+      - name: Test the video sync
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          $chart = "$pwd\replay\tests\test_chart.sm"
+          python replay/tests/make_test_replay.py $chart "/Songs/ArrowReplay Tests/Test Chart/test_chart.sm" video.avreplay --rate 1.25 --seed 2
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python replay/tests/make_test_recording.py $chart recordings --rate 1.25 --truth recordings\truth.json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $cases = [ordered]@{
+            "2026-10-22 19-58-30" = @("recordings\truth.json", 0)
+            "game" = @("recordings\truth.json", 0)
+            "nothing" = @("--not-found", 1)
+          }
+          foreach ($name in $cases.Keys) {
+            Write-Host "== $name"
+            $av = Start-Process -FilePath "package\ArrowVortex\ArrowVortex.exe" -Wait -PassThru -ArgumentList @(
+              "--video-sync", "`"$pwd\video.avreplay`"", "`"$pwd\recordings\song\test_chart.sm`"",
+              "`"$pwd\recordings\$name.wav`"", "`"$pwd\$name.txt`"")
+            Write-Host "ArrowVortex exit code: $($av.ExitCode)"
+            python replay/tests/check_video_sync.py "$name.txt" $cases[$name][0]
+            if ($LASTEXITCODE -ne 0 -or $av.ExitCode -ne $cases[$name][1]) { exit 1 }
+          }
       # Publishes the tested build as a release, for a pushed arrowreplay-v*
       # tag or when the workflow is run by hand with a version. The release
       # notes are replay/release-notes.md.
